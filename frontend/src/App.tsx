@@ -7,7 +7,7 @@ function App() {
         </h1>
 
         <p className="mt-4 text-slate-400">
-          React + TypeScript + Tailwind
+          React + TypeScript + Tailwind + PostgreSQL con Supabase
         </p>
         <p className="mt-4 text-slate-400">
           Alumnos: Borachoc, Maximiliano - Colombano, Gabriel - Cornejo, Enzo
