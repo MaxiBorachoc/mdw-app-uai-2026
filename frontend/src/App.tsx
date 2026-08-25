@@ -10,7 +10,7 @@ function App() {
           React + TypeScript + Tailwind + PostgreSQL con Supabase
         </p>
         <p className="mt-4 text-slate-400">
-          Alumnos: Borachoc, Maximiliano - Colombano, Gabriel - Cornejo, Enzo
+          Alumnos: Borachoc, Maximiliano - Colombano, Gabriel - Cornejo, Enzo - Bodrero, Benjamín
         </p>
       </div>
     </main>
