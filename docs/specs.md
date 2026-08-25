@@ -86,8 +86,8 @@ Criterios de aceptacion:
       aparece en la lista de miembros con ese rol.
 - [ ] Dado que un miembro tiene rol reader, cuando intenta crear o modificar documentacion,
       entonces el sistema rechaza la accion.
-- [ ] Caso de error: si quien intenta cambiar roles no es owner, el sistema responde 403 aunque la
-      llamada no venga de la interfaz.
+- [ ] Caso de error: si quien intenta cambiar roles no es owner, el sistema notifica al usuario que 
+      no tiene acceso al proyecto.
 
 ### H3 - Registrar una historia de usuario
 
