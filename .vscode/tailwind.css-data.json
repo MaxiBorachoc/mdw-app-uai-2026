@@ -1,0 +1,15 @@
+{
+  "version": 1.1,
+  "atDirectives": [
+    {
+      "name": "@theme",
+      "description": "Define variables de tema de Tailwind CSS 4. Admite el modificador inline.",
+      "references": [
+        {
+          "name": "Tailwind CSS: theme variables",
+          "url": "https://tailwindcss.com/docs/theme"
+        }
+      ]
+    }
+  ]
+}

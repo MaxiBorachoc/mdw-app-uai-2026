@@ -1,0 +1,46 @@
+// Modelo de datos del proyecto.
+//
+//
+// Después de cualquier cambio en este archivo:
+//   npx prisma migrate dev --name <descripcion-del-cambio>
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Rol {
+  ADMIN
+  USUARIO
+}
+
+model Usuario {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  nombre    String
+  rol       Rol      @default(USUARIO)
+  creadoEn  DateTime @default(now())
+
+  notas     Nota[]
+}
+
+// Muestra el patrón de una relación 1-N con su índice.
+model Nota {
+  id            String   @id @default(cuid())
+  titulo        String
+  contenido     String
+  creadaEn      DateTime @default(now())
+  actualizadaEn DateTime @updatedAt
+
+
+  autor         Usuario  @relation(fields: [autorId], references: [id], onDelete: Cascade)
+  autorId       String
+
+  @@index([autorId])
+}
