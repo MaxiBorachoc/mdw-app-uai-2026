@@ -1,0 +1,5 @@
+{
+  "prisma.pinToPrisma6": true,
+  "prisma.hidePrisma6Prompts": true,
+  "css.customData": [".vscode/tailwind.css-data.json"]
+}
