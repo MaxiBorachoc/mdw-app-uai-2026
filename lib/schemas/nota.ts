@@ -4,7 +4,9 @@
  * Un solo schema para el cliente y el servidor: el formulario valida con el
  * mismo objeto con el que valida la API. Si las reglas estuvieran duplicadas,
  * tarde o temprano quedarían distintas.
- * s
+ *
+ * `z.infer` deriva el tipo de TypeScript del schema, así el tipo y la
+ * validación nunca se desincronizan.
  */
 import { z } from "zod";
 

@@ -1,10 +1,18 @@
 # AGENTS.md — reglas de este proyecto
 
+Este archivo lo lee tu asistente de IA (Cursor, Copilot, Claude Code, etc.) antes de escribir código. Manténlo actualizado: si el equipo cambia una convención y esto no lo refleja, la IA va a seguir escribiendo con la convención vieja.
 
 > **Cómo se escribe una regla acá:** verificable, no aspiracional. "Escribir código limpio" no es una regla. "Un componente por archivo, en PascalCase" sí lo es.
 
 ## Qué es este proyecto
 
+Sistema de documentación versionada de proyectos de software: evita que las historias de usuario,
+actividades y diagramas se pisen o se pierdan entre entregas. Los roles son **Owner** (administra
+miembros y roles del proyecto) y **Editor** (crea y modifica documentación); hay un tercer rol,
+**Reader**, que solo consulta. El flujo principal: un editor documenta historias y actividades, el
+sistema versiona cada cambio automáticamente, y antes de una entrega se cierra la versión del
+proyecto en desarrollo asignándole `Version.Build.Patch`, lo que congela una referencia al estado
+de todo lo documentado en ese momento para poder consultarlo después.
 
 ## La especificación
 
