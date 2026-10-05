@@ -83,7 +83,7 @@ prisma/
   schema.prisma         modelo de datos
   seed.ts               datos de ejemplo
 docs/
-  specs.md              qué hace el sistema (requerimientos)
+  spec.md               qué hace el sistema (requerimientos)
   adr/                  decisiones técnicas y por qué
 ```
 

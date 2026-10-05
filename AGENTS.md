@@ -16,7 +16,7 @@ de todo lo documentado en ese momento para poder consultarlo después.
 
 ## La especificación
 
-Lo que el sistema tiene que hacer está en [`docs/specs.md`](./docs/specs.md): entidades, historias de usuario con sus criterios de aceptación, el flujo principal y las reglas de negocio.
+Lo que el sistema tiene que hacer está en [`docs/spec.md`](./docs/spec.md): entidades, historias de usuario con sus criterios de aceptación, el flujo principal y las reglas de negocio.
 
 - **Antes de escribir lógica de dominio, leelo.** Las reglas de la sección 6 no se deducen del código.
 - **Si algo no está ahí, no lo inventes: preguntá.** Una regla de negocio adivinada es un error que compila y que nadie detecta hasta producción.
