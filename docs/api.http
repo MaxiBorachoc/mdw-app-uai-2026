@@ -1,0 +1,115 @@
+# Pruebas del contrato de la API con la extensión REST Client de VS Code.
+# Ejecutar cuando los Route Handlers estén implementados y la app esté levantada.
+# Hay tres casos por endpoint: feliz, entrada inválida y recurso inexistente.
+
+@baseUrl = http://localhost:3000
+@proyectoId = PEGAR_AQUI
+
+### GET /api/proyectos — 200 feliz
+GET {{baseUrl}}/api/proyectos
+
+### POST /api/proyectos — 201 feliz
+POST {{baseUrl}}/api/proyectos
+Content-Type: application/json
+
+{
+  "nombre": "Proyecto de prueba",
+  "descripcion": "Creado desde api.http"
+}
+
+### POST /api/proyectos — 400 nombre vacío
+POST {{baseUrl}}/api/proyectos
+Content-Type: application/json
+
+{
+  "nombre": "",
+  "descripcion": "sin nombre"
+}
+
+### POST /api/proyectos — 400 body inválido
+POST {{baseUrl}}/api/proyectos
+Content-Type: application/json
+
+esto no es json
+
+### GET /api/proyectos/:id — 200 feliz
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}
+
+### GET /api/proyectos/:id — 404 inexistente
+GET {{baseUrl}}/api/proyectos/no-existe
+
+### PUT /api/proyectos/:id — 200 feliz
+PUT {{baseUrl}}/api/proyectos/{{proyectoId}}
+Content-Type: application/json
+
+{
+  "nombre": "Nombre editado",
+  "descripcion": "Descripción editada"
+}
+
+### PUT /api/proyectos/:id — 400 nombre vacío
+PUT {{baseUrl}}/api/proyectos/{{proyectoId}}
+Content-Type: application/json
+
+{
+  "nombre": "   ",
+  "descripcion": ""
+}
+
+### PUT /api/proyectos/:id — 404 inexistente
+PUT {{baseUrl}}/api/proyectos/no-existe
+Content-Type: application/json
+
+{
+  "nombre": "Intento"
+}
+
+### POST /api/proyectos/:id/cerrar-version — 200 feliz
+# Ejecutar una sola vez por proyecto: crea la versión 1.0.0.
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
+Content-Type: application/json
+
+{
+  "numeroVersion": 1,
+  "numeroBuild": 0,
+  "numeroPatch": 0,
+  "nombre": "Primera entrega"
+}
+
+### POST /api/proyectos/:id/cerrar-version — 400 combinación 0.0.0
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
+Content-Type: application/json
+
+{
+  "numeroVersion": 0,
+  "numeroBuild": 0,
+  "numeroPatch": 0
+}
+
+### POST /api/proyectos/:id/cerrar-version — 404 inexistente
+POST {{baseUrl}}/api/proyectos/no-existe/cerrar-version
+Content-Type: application/json
+
+{
+  "numeroVersion": 1,
+  "numeroBuild": 0,
+  "numeroPatch": 0
+}
+
+### POST /api/proyectos/:id/cerrar-version — 409 versión repetida
+# Ejecutar después del caso feliz.
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
+Content-Type: application/json
+
+{
+  "numeroVersion": 1,
+  "numeroBuild": 0,
+  "numeroPatch": 0
+}
+
+### DELETE /api/proyectos/:id — 204 feliz
+# Ejecutar al final: borra el proyecto en cascada.
+DELETE {{baseUrl}}/api/proyectos/{{proyectoId}}
+
+### DELETE /api/proyectos/:id — 404 inexistente
+DELETE {{baseUrl}}/api/proyectos/no-existe
