@@ -1,5 +1,12 @@
 /**
  * Acceso a datos de la entidad Nota.
+ *
+ * Este archivo es el EJEMPLO del patrón que sigue todo el proyecto:
+ * ningún componente ni Route Handler habla con Prisma directamente,
+ * todos pasan por un módulo de `lib/db/`.
+ *
+ * Por qué: si mañana cambia la consulta, se cambia en un solo lugar; y
+ * cuando algo anda lento, se sabe exactamente dónde mirar.
  */
 import { prisma } from "@/lib/db/client";
 import type { CrearNotaInput } from "@/lib/schemas/nota";

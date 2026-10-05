@@ -1,4 +1,13 @@
-
+/**
+ * Endpoint de ejemplo: muestra el patrón que sigue toda la API del proyecto.
+ *
+ *   1. Se valida la entrada con un schema de Zod.
+ *   2. Se verifica quién es el usuario (clase 6).
+ *   3. Se delega el acceso a datos a `lib/db/`.
+ *   4. Se responde con el status code correcto.
+ *
+ * Se completa en las clases 4, 5 y 6.
+ */
 import { NextResponse } from "next/server";
 import { crearNotaSchema } from "@/lib/schemas/nota";
 import { crearNota, listarNotas } from "@/lib/db/notas";
@@ -22,7 +31,7 @@ export async function POST(request: Request) {
   }
 
   // 2. Autorizar. El autor sale de la sesión del servidor, NUNCA del body.
-  //    reemplazar por el usuario real de la sesión y
+  //    TODO (clase 6): reemplazar por el usuario real de la sesión y
   //    devolver 401 si no hay sesión.
   const autorId = "usuario-de-ejemplo";
 
