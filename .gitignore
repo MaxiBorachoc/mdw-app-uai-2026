@@ -1,0 +1,20 @@
+# Config local de herramientas de desarrollo (paths absolutos por maquina)
+.claude/
+
+node_modules/
+.next/
+out/
+build/
+.DS_Store
+
+# entorno
+.env
+.env.local
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts

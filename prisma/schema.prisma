@@ -1,0 +1,250 @@
+// Modelo de datos del proyecto: documentacion versionada de proyectos de software.
+// Ver docs/spec.md seccion 3 (Entidades) y seccion 6 (Reglas de negocio).
+//
+// Despues de cualquier cambio en este archivo:
+//   npx prisma migrate dev --name <descripcion-del-cambio>
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum RolProyecto {
+  OWNER
+  EDITOR
+  READER
+}
+
+enum EstadoActividad {
+  PENDIENTE
+  EN_PROGRESO
+  COMPLETADA
+}
+
+enum EstadoVersionProyecto {
+  EN_DESARROLLO
+  CERRADA
+}
+
+enum TipoVersionProyectoItem {
+  HISTORIA
+  ACTIVIDAD
+}
+
+model Usuario {
+  id       String   @id @default(cuid())
+  email    String   @unique
+  nombre   String
+  creadoEn DateTime @default(now())
+
+  proyectosCreados   Proyecto[]               @relation("ProyectoCreador")
+  membresias         MiembroProyecto[]
+  historiaVersiones  HistoriaUsuarioVersion[]
+  actividadVersiones ActividadVersion[]
+  versionesCerradas  VersionProyecto[]
+}
+
+model Proyecto {
+  id          String   @id @default(cuid())
+  nombre      String
+  descripcion String   @default("")
+  creadoEn    DateTime @default(now())
+
+  ownerId String
+  owner   Usuario @relation("ProyectoCreador", fields: [ownerId], references: [id], onDelete: Restrict)
+
+  miembros    MiembroProyecto[]
+  historias   HistoriaUsuario[]
+  actividades Actividad[]
+  conexiones  ConexionActividad[]
+  versiones   VersionProyecto[]
+
+  @@index([ownerId])
+}
+
+// Relacion N-N entre Usuario y Proyecto, con dato propio: el rol dentro de ese proyecto.
+model MiembroProyecto {
+  id       String      @id @default(cuid())
+  rol      RolProyecto
+  creadoEn DateTime    @default(now())
+
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, proyectoId])
+  @@index([proyectoId])
+  @@index([usuarioId])
+}
+
+// Identidad estable de una historia. "versionActualId" apunta a su revision vigente;
+// el titulo unico por proyecto se valida en lib/db (no es un constraint simple de DB
+// porque depende del titulo de la version ACTUAL, no de todas las versiones).
+model HistoriaUsuario {
+  id       String   @id @default(cuid())
+  creadoEn DateTime @default(now())
+
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  versionActualId String?                 @unique
+  versionActual   HistoriaUsuarioVersion? @relation("HistoriaVersionActual", fields: [versionActualId], references: [id], onDelete: SetNull)
+
+  versiones HistoriaUsuarioVersion[] @relation("HistoriaVersiones")
+
+  @@index([proyectoId])
+}
+
+// Revision inmutable: nunca se edita, cada cambio crea una fila nueva.
+model HistoriaUsuarioVersion {
+  id                  String   @id @default(cuid())
+  numeroVersion       Int
+  titulo              String
+  descripcion         String
+  criteriosAceptacion String[]
+  creadoEn            DateTime @default(now())
+
+  historiaId String
+  historia   HistoriaUsuario @relation("HistoriaVersiones", fields: [historiaId], references: [id], onDelete: Cascade)
+
+  autorId String
+  autor   Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  esVersionActualDe    HistoriaUsuario?      @relation("HistoriaVersionActual")
+  versionProyectoItems VersionProyectoItem[]
+
+  @@unique([historiaId, numeroVersion])
+  @@index([historiaId])
+  @@index([autorId])
+}
+
+// Nodo estable del diagrama; puede tener una actividad padre (diagramas anidados).
+// La posicion vive aca, no se versiona (deuda tecnica conocida: no se conserva el
+// layout del diagrama al cerrar una version de proyecto — ver spec.md seccion 6).
+model Actividad {
+  id        String   @id @default(cuid())
+  posicionX Float    @default(0)
+  posicionY Float    @default(0)
+  creadoEn  DateTime @default(now())
+
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  actividadPadreId String?
+  actividadPadre   Actividad?  @relation("ActividadHijas", fields: [actividadPadreId], references: [id], onDelete: Cascade)
+  actividadesHijas Actividad[] @relation("ActividadHijas")
+
+  versionActualId String?           @unique
+  versionActual   ActividadVersion? @relation("ActividadVersionActual", fields: [versionActualId], references: [id], onDelete: SetNull)
+
+  versiones         ActividadVersion[]  @relation("ActividadVersiones")
+  conexionesOrigen  ConexionActividad[] @relation("ConexionOrigen")
+  conexionesDestino ConexionActividad[] @relation("ConexionDestino")
+
+  @@index([proyectoId])
+  @@index([actividadPadreId])
+}
+
+// Revision inmutable de la documentacion de una actividad.
+model ActividadVersion {
+  id            String          @id @default(cuid())
+  numeroVersion Int
+  nombre        String
+  documentacion String
+  estado        EstadoActividad
+  creadoEn      DateTime        @default(now())
+
+  actividadId String
+  actividad   Actividad @relation("ActividadVersiones", fields: [actividadId], references: [id], onDelete: Cascade)
+
+  autorId String
+  autor   Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  esVersionActualDe    Actividad?            @relation("ActividadVersionActual")
+  versionProyectoItems VersionProyectoItem[]
+
+  @@unique([actividadId, numeroVersion])
+  @@index([actividadId])
+  @@index([autorId])
+}
+
+// Flecha entre dos actividades del mismo proyecto y del mismo nivel de diagrama
+// (regla validada en lib/db, no en la DB: requiere comparar actividadPadreId de ambas).
+model ConexionActividad {
+  id       String   @id @default(cuid())
+  creadoEn DateTime @default(now())
+
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  actividadOrigenId String
+  actividadOrigen   Actividad @relation("ConexionOrigen", fields: [actividadOrigenId], references: [id], onDelete: Cascade)
+
+  actividadDestinoId String
+  actividadDestino   Actividad @relation("ConexionDestino", fields: [actividadDestinoId], references: [id], onDelete: Cascade)
+
+  @@unique([actividadOrigenId, actividadDestinoId])
+  @@index([proyectoId])
+  @@index([actividadDestinoId])
+}
+
+// Hito con nombre del proyecto (antes "Checkpoint"). Nace "EN_DESARROLLO" (sin numero,
+// es donde se edita) y se "cierra" asignandole Version.Build.Patch; ahi queda inmutable
+// y se congela la referencia a la version vigente de cada historia/actividad. Al cerrar
+// se abre automaticamente la siguiente version en desarrollo del proyecto.
+//
+// Solo puede haber una version EN_DESARROLLO por proyecto a la vez: se valida en
+// lib/db (ver tambien la migracion que agrega el indice unico parcial).
+model VersionProyecto {
+  id       String                @id @default(cuid())
+  estado   EstadoVersionProyecto @default(EN_DESARROLLO)
+  creadoEn DateTime              @default(now())
+
+  // Nulos mientras esta EN_DESARROLLO; se completan al cerrar.
+  numeroVersion Int?
+  numeroBuild   Int?
+  numeroPatch   Int?
+  nombre        String?
+  descripcion   String?
+  cerradaEl     DateTime?
+
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  autorId String
+  autor   Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  items VersionProyectoItem[]
+
+  @@unique([proyectoId, numeroVersion, numeroBuild, numeroPatch])
+  @@index([proyectoId])
+  @@index([autorId])
+}
+
+// Referencia a la version exacta (de historia o actividad) vigente al cerrar una
+// version de proyecto. Exactamente uno de los dos campos va completo segun "tipo"
+// (se valida en lib/db).
+model VersionProyectoItem {
+  id   String                  @id @default(cuid())
+  tipo TipoVersionProyectoItem
+
+  versionProyectoId String
+  versionProyecto   VersionProyecto @relation(fields: [versionProyectoId], references: [id], onDelete: Cascade)
+
+  historiaUsuarioVersionId String?
+  historiaUsuarioVersion   HistoriaUsuarioVersion? @relation(fields: [historiaUsuarioVersionId], references: [id], onDelete: Restrict)
+
+  actividadVersionId String?
+  actividadVersion   ActividadVersion? @relation(fields: [actividadVersionId], references: [id], onDelete: Restrict)
+
+  @@index([versionProyectoId])
+  @@index([historiaUsuarioVersionId])
+  @@index([actividadVersionId])
+}
