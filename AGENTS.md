@@ -7,12 +7,13 @@ Este archivo lo lee tu asistente de IA (Cursor, Copilot, Claude Code, etc.) ante
 ## Qué es este proyecto
 
 Sistema de documentación versionada de proyectos de software: evita que las historias de usuario,
-actividades y diagramas se pisen o se pierdan entre entregas. Los roles son **Owner** (administra
-miembros y roles del proyecto) y **Editor** (crea y modifica documentación); hay un tercer rol,
-**Reader**, que solo consulta. El flujo principal: un editor documenta historias y actividades, el
-sistema versiona cada cambio automáticamente, y antes de una entrega se cierra la versión del
-proyecto en desarrollo asignándole `Version.Build.Patch`, lo que congela una referencia al estado
-de todo lo documentado en ese momento para poder consultarlo después.
+actividades y diagramas se pisen o se pierdan entre entregas. Los roles son **Dueño** (administra
+colaboradores y roles del proyecto) y **Editor** (crea y modifica documentación); hay un tercer rol,
+**Lector**, que solo consulta (nombres en español desde la clase 6, ver `docs/spec.md` seccion 2).
+El flujo principal: un editor documenta historias y actividades, el sistema versiona cada cambio
+automáticamente, y antes de una entrega se cierra la versión del proyecto en desarrollo asignándole
+`Version.Build.Patch`, lo que congela una referencia al estado de todo lo documentado en ese momento
+para poder consultarlo después.
 
 ## La especificación
 

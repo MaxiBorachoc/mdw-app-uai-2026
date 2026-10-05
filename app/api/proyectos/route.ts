@@ -1,25 +1,41 @@
-/** H1 — Crear un proyecto y listar los proyectos del usuario actual. */
+/**
+ * H1 — Crear un proyecto / listar los proyectos del usuario.
+ *
+ * Orden de las preguntas del handler: sesion (401), body (400), regla (409),
+ * consulta. Estos dos endpoints son para cualquier usuario con sesion: no hay
+ * un proyecto sobre el cual chequear rol.
+ */
 import { NextResponse } from "next/server";
-import { USUARIO_DE_EJEMPLO_ID } from "@/lib/auth";
+import { requerirUsuario } from "@/lib/auth";
 import { crearProyectoSchema } from "@/lib/schemas/proyecto";
 import { crearProyecto, listarProyectosDe } from "@/lib/db/proyectos";
+import { responderError } from "@/lib/api/errores";
 
 export async function GET() {
-  // TODO (paso 8): obtener el usuario desde la sesión y devolver 401 si no existe.
-  return NextResponse.json(await listarProyectosDe(USUARIO_DE_EJEMPLO_ID));
+  try {
+    const usuario = await requerirUsuario();
+    return NextResponse.json(await listarProyectosDe(usuario.id));
+  } catch (error) {
+    return responderError("GET /api/proyectos", error);
+  }
 }
 
 export async function POST(request: Request) {
-  // TODO (paso 8): obtener el usuario desde la sesión y devolver 401 si no existe.
-  const body: unknown = await request.json().catch(() => null);
-  const resultado = crearProyectoSchema.safeParse(body);
-  if (!resultado.success) {
-    return NextResponse.json(
-      { error: "Datos inválidos", detalles: resultado.error.flatten() },
-      { status: 400 },
-    );
-  }
+  try {
+    const usuario = await requerirUsuario();
 
-  const proyecto = await crearProyecto(resultado.data, USUARIO_DE_EJEMPLO_ID);
-  return NextResponse.json(proyecto, { status: 201 });
+    const body: unknown = await request.json().catch(() => null);
+    const resultado = crearProyectoSchema.safeParse(body);
+    if (!resultado.success) {
+      return NextResponse.json(
+        { error: "Datos inválidos", detalles: resultado.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const proyecto = await crearProyecto(resultado.data, usuario.id);
+    return NextResponse.json(proyecto, { status: 201 });
+  } catch (error) {
+    return responderError("POST /api/proyectos", error);
+  }
 }

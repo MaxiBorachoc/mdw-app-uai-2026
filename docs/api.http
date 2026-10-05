@@ -1,115 +1,285 @@
-# Pruebas del contrato de la API con la extensión REST Client de VS Code.
-# Requiere la app levantada y el seed aplicado. Todavía no hay sesión: no hace falta cookie.
-# Hay tres casos por endpoint: feliz, entrada inválida y recurso inexistente.
+# Pruebas de la API (extensión REST Client de VS Code): casos felices y una request por cada fila del
+# catálogo de errores de docs/api.md.
+#
+# Local:      @baseUrl = http://localhost:3000
+# Producción: @baseUrl = https://<tu-proyecto>.vercel.app
+#
+# La auth es una cookie de sesión de Auth.js. Iniciá sesión en el navegador, copiá el valor de la cookie
+# `authjs.session-token` (en producción `__Secure-authjs.session-token`) desde las DevTools y pegalo en
+# @sesion. Nunca commitear el valor real.
+#
+# @proyectoId:        proyecto donde sos OWNER, con al menos una versión 1.0.0 ya cerrada (ver "cerrar 200").
+# @proyectoLectorId:  proyecto donde sos miembro pero solo READER (para los 403).
+# @proyectoAjenoId:   proyecto donde NO sos miembro, o un id inexistente (para los 404).
 
 @baseUrl = http://localhost:3000
+@sesion = authjs.session-token=PEGAR_AQUI
 @proyectoId = PEGAR_AQUI
+@proyectoLectorId = PEGAR_AQUI
+@proyectoAjenoId = proyecto-ajeno
+@usuarioColaboradorId = PEGAR_AQUI
+@emailColaborador = PEGAR_AQUI
 
-### GET /api/proyectos — 200 feliz
+# ---------- GET /api/proyectos ----------
+
+### 200 feliz
+GET {{baseUrl}}/api/proyectos
+Cookie: {{sesion}}
+
+### 401 sin sesión
 GET {{baseUrl}}/api/proyectos
 
-### POST /api/proyectos — 201 feliz
+# ---------- POST /api/proyectos ----------
+
+### 201 feliz
+POST {{baseUrl}}/api/proyectos
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "nombre": "Proyecto de prueba", "descripcion": "Creado desde api.http" }
+
+### 400 nombre vacío
+POST {{baseUrl}}/api/proyectos
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "nombre": "", "descripcion": "sin nombre" }
+
+### 401 sin sesión
 POST {{baseUrl}}/api/proyectos
 Content-Type: application/json
 
-{
-  "nombre": "Proyecto de prueba",
-  "descripcion": "Creado desde api.http"
-}
+{ "nombre": "Proyecto de prueba" }
 
-### POST /api/proyectos — 400 nombre vacío
-POST {{baseUrl}}/api/proyectos
-Content-Type: application/json
+# ---------- GET /api/proyectos/:id ----------
 
-{
-  "nombre": "",
-  "descripcion": "sin nombre"
-}
+### 200 feliz
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}
+Cookie: {{sesion}}
 
-### POST /api/proyectos — 400 body inválido
-POST {{baseUrl}}/api/proyectos
-Content-Type: application/json
+### 404 no soy miembro / no existe
+GET {{baseUrl}}/api/proyectos/{{proyectoAjenoId}}
+Cookie: {{sesion}}
 
-esto no es json
-
-### GET /api/proyectos/:id — 200 feliz
+### 401 sin sesión
 GET {{baseUrl}}/api/proyectos/{{proyectoId}}
 
-### GET /api/proyectos/:id — 404 inexistente
-GET {{baseUrl}}/api/proyectos/no-existe
+# ---------- PUT /api/proyectos/:id ----------
 
-### PUT /api/proyectos/:id — 200 feliz
+### 200 feliz
 PUT {{baseUrl}}/api/proyectos/{{proyectoId}}
+Cookie: {{sesion}}
 Content-Type: application/json
 
-{
-  "nombre": "Nombre editado",
-  "descripcion": "Descripción editada"
-}
+{ "nombre": "Nombre editado", "descripcion": "Descripción editada" }
 
-### PUT /api/proyectos/:id — 400 nombre vacío
+### 400 nombre vacío
 PUT {{baseUrl}}/api/proyectos/{{proyectoId}}
+Cookie: {{sesion}}
 Content-Type: application/json
 
-{
-  "nombre": "   ",
-  "descripcion": ""
-}
+{ "nombre": "   ", "descripcion": "" }
 
-### PUT /api/proyectos/:id — 404 inexistente
-PUT {{baseUrl}}/api/proyectos/no-existe
+### 403 soy miembro pero no owner
+PUT {{baseUrl}}/api/proyectos/{{proyectoLectorId}}
+Cookie: {{sesion}}
 Content-Type: application/json
 
-{
-  "nombre": "Intento"
-}
+{ "nombre": "Intento de lector" }
 
-### POST /api/proyectos/:id/cerrar-version — 200 feliz
-# Ejecutar una sola vez por proyecto: crea la versión 1.0.0.
+### 404 no soy miembro / no existe
+PUT {{baseUrl}}/api/proyectos/{{proyectoAjenoId}}
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "nombre": "Intento ajeno" }
+
+# ---------- POST /api/proyectos/:id/cerrar-version ----------
+
+### 200 feliz (crea 1.0.0; correr una sola vez por proyecto)
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 0, "nombre": "Primera entrega" }
+
+### 400 combinación 0.0.0
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "numeroVersion": 0, "numeroBuild": 0, "numeroPatch": 0 }
+
+### 400 número negativo
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "numeroVersion": 1, "numeroBuild": -1, "numeroPatch": 0 }
+
+### 409 versión duplicada (después de "200 feliz")
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 0 }
+
+### 409 por debajo de la última cerrada (después de "200 feliz")
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "numeroVersion": 0, "numeroBuild": 9, "numeroPatch": 9 }
+
+### 403 soy miembro pero solo lector
+POST {{baseUrl}}/api/proyectos/{{proyectoLectorId}}/cerrar-version
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 0 }
+
+### 404 no soy miembro / no existe
+POST {{baseUrl}}/api/proyectos/{{proyectoAjenoId}}/cerrar-version
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 0 }
+
+### 401 sin sesión
 POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
 Content-Type: application/json
 
-{
-  "numeroVersion": 1,
-  "numeroBuild": 0,
-  "numeroPatch": 0,
-  "nombre": "Primera entrega"
-}
+{ "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 0 }
 
-### POST /api/proyectos/:id/cerrar-version — 400 combinación 0.0.0
-POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
-Content-Type: application/json
+# ---------- DELETE /api/proyectos/:id ----------
 
-{
-  "numeroVersion": 0,
-  "numeroBuild": 0,
-  "numeroPatch": 0
-}
+### 403 soy miembro pero no owner
+DELETE {{baseUrl}}/api/proyectos/{{proyectoLectorId}}
+Cookie: {{sesion}}
 
-### POST /api/proyectos/:id/cerrar-version — 404 inexistente
-POST {{baseUrl}}/api/proyectos/no-existe/cerrar-version
-Content-Type: application/json
+### 404 no soy miembro / no existe
+DELETE {{baseUrl}}/api/proyectos/{{proyectoAjenoId}}
+Cookie: {{sesion}}
 
-{
-  "numeroVersion": 1,
-  "numeroBuild": 0,
-  "numeroPatch": 0
-}
-
-### POST /api/proyectos/:id/cerrar-version — 409 versión repetida
-# Ejecutar después del caso feliz.
-POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
-Content-Type: application/json
-
-{
-  "numeroVersion": 1,
-  "numeroBuild": 0,
-  "numeroPatch": 0
-}
-
-### DELETE /api/proyectos/:id — 204 feliz
-# Ejecutar al final: borra el proyecto en cascada.
+### 401 sin sesión
 DELETE {{baseUrl}}/api/proyectos/{{proyectoId}}
 
-### DELETE /api/proyectos/:id — 404 inexistente
-DELETE {{baseUrl}}/api/proyectos/no-existe
+### 204 feliz (ejecutar al final: borra el proyecto en cascada)
+DELETE {{baseUrl}}/api/proyectos/{{proyectoId}}
+Cookie: {{sesion}}
+
+# ---------- Colaboradores (H2) ----------
+# @usuarioColaboradorId: id de un usuario que ya tiene cuenta (para agregar/cambiar/quitar).
+# @emailColaborador:     email de ese usuario.
+
+### GET miembros — 200 feliz
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros
+Cookie: {{sesion}}
+
+### GET miembros — 404 no soy miembro / no existe
+GET {{baseUrl}}/api/proyectos/{{proyectoAjenoId}}/miembros
+Cookie: {{sesion}}
+
+### GET miembros — 401 sin sesión
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros
+
+### POST miembros — 201 feliz
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "email": "{{emailColaborador}}", "rol": "EDITOR" }
+
+### POST miembros — 400 rol OWNER no se puede asignar
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "email": "{{emailColaborador}}", "rol": "OWNER" }
+
+### POST miembros — 409 usuario inexistente
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "email": "nadie@ejemplo.com", "rol": "READER" }
+
+### POST miembros — 409 ya es colaborador (después del 201)
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "email": "{{emailColaborador}}", "rol": "READER" }
+
+### POST miembros — 409 el owner no se agrega a sí mismo (poner tu propio email)
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "email": "PEGAR_TU_EMAIL", "rol": "READER" }
+
+### POST miembros — 403 soy miembro pero no owner
+POST {{baseUrl}}/api/proyectos/{{proyectoLectorId}}/miembros
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "email": "{{emailColaborador}}", "rol": "EDITOR" }
+
+### POST miembros — 404 no soy miembro / no existe
+POST {{baseUrl}}/api/proyectos/{{proyectoAjenoId}}/miembros
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "email": "{{emailColaborador}}", "rol": "EDITOR" }
+
+### POST miembros — 401 sin sesión
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros
+Content-Type: application/json
+
+{ "email": "{{emailColaborador}}", "rol": "EDITOR" }
+
+### PATCH miembro — 200 feliz
+PATCH {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/{{usuarioColaboradorId}}
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "rol": "READER" }
+
+### PATCH miembro — 404 el usuario no es colaborador
+PATCH {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/no-existe
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "rol": "READER" }
+
+### PATCH miembro — 403 soy miembro pero no owner
+PATCH {{baseUrl}}/api/proyectos/{{proyectoLectorId}}/miembros/{{usuarioColaboradorId}}
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "rol": "EDITOR" }
+
+### PATCH miembro — 401 sin sesión
+PATCH {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/{{usuarioColaboradorId}}
+Content-Type: application/json
+
+{ "rol": "EDITOR" }
+
+### DELETE miembro — 403 no soy owner y no me quito a mí mismo
+DELETE {{baseUrl}}/api/proyectos/{{proyectoLectorId}}/miembros/{{usuarioColaboradorId}}
+Cookie: {{sesion}}
+
+### DELETE miembro — 404 no soy miembro / no existe el proyecto
+DELETE {{baseUrl}}/api/proyectos/{{proyectoAjenoId}}/miembros/{{usuarioColaboradorId}}
+Cookie: {{sesion}}
+
+### DELETE miembro — 401 sin sesión
+DELETE {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/{{usuarioColaboradorId}}
+
+### DELETE miembro — 204 el owner quita al colaborador
+DELETE {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/{{usuarioColaboradorId}}
+Cookie: {{sesion}}
+
+### DELETE miembro — 404 ya no es colaborador
+DELETE {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/{{usuarioColaboradorId}}
+Cookie: {{sesion}}
