@@ -2,7 +2,7 @@
 
 Contrato propuesto para los endpoints de proyectos. Cada fila indica qué hace la operación, qué rol puede realizarla y qué errores debe devolver. Todo responde JSON, salvo `204` (sin cuerpo).
 
-> **Estado actual:** esta rama todavía no tiene Route Handlers en `app/api/`. Este documento y `api.http` definen el contrato y los casos que deberá cumplir la implementación. La sesión y la autorización por rol de proyecto se incorporan en la clase 6.
+> **Estado actual:** los Route Handlers de proyectos están implementados y, hasta incorporar el login, actúan con el usuario temporal `USUARIO_DE_EJEMPLO_ID` creado por el seed. La sesión y la autorización por rol de proyecto se incorporan en el Paso 8; por eso todavía no se devuelven `401` ni `403`.
 
 ## Operaciones
 
@@ -39,4 +39,4 @@ Contrato propuesto para los endpoints de proyectos. Cada fila indica qué hace l
 | POST `.../cerrar-version` | Es miembro pero no `OWNER` ni `EDITOR` | 403 |
 | GET `/api/proyectos/:id` y las demás con `:id` | El usuario no es miembro del proyecto | 404 |
 
-El catálogo completo de mensajes de error y la trazabilidad con las historias de la especificación se completan junto con los Route Handlers.
+La validación de que una versión sea ascendente y el `409` para duplicados se incorporan en el Paso 7. Hasta entonces, una combinación repetida puede terminar como un error de base de datos (`500`).

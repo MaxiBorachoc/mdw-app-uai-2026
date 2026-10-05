@@ -12,3 +12,10 @@ export const ProyectoSchema = z.object({
   ownerId: IdSchema,
 });
 export type Proyecto = z.infer<typeof ProyectoSchema>;
+
+/** Entrada compartida por la creación y la edición de un proyecto. */
+export const crearProyectoSchema = z.object({
+  nombre: ProyectoSchema.shape.nombre,
+  descripcion: ProyectoSchema.shape.descripcion.default(""),
+});
+export type CrearProyectoInput = z.infer<typeof crearProyectoSchema>;

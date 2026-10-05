@@ -1,5 +1,5 @@
 # Pruebas del contrato de la API con la extensión REST Client de VS Code.
-# Ejecutar cuando los Route Handlers estén implementados y la app esté levantada.
+# Requiere la app levantada y el seed aplicado. Todavía no hay sesión: no hace falta cookie.
 # Hay tres casos por endpoint: feliz, entrada inválida y recurso inexistente.
 
 @baseUrl = http://localhost:3000
