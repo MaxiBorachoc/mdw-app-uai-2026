@@ -49,7 +49,11 @@ nuevas: en local van en `.env.local` (no se commitea, hay un modelo en `.env.exa
 |---|---|---|
 | `DATABASE_URL` | Conexión que usa la app (pooler, puerto 6543) | Supabase → *Connect* |
 | `DIRECT_URL` | Conexión directa que usan las migraciones (puerto 5432) | Supabase → *Connect* |
-| `AUTH_SECRET` | Secreto de sesión (lo usa Auth.js desde la clase 6) | `npx auth secret` (uno distinto por entorno) |
+| `AUTH_SECRET` | Firma de la sesión | `npx auth secret` (uno distinto por entorno) |
+| `AUTH_GOOGLE_ID` y `AUTH_GOOGLE_SECRET` | Login con Google | Google Cloud Console → Credenciales → ID de cliente OAuth |
+
+Además de las variables, hay que registrar en Google Cloud Console la URI de redirección
+`<URL de la app>/api/auth/callback/google` (una por entorno: local y producción).
 
 En una base nueva hay que aplicar las migraciones una vez: `npx prisma migrate deploy` (con `DIRECT_URL`
 apuntando a esa base).
