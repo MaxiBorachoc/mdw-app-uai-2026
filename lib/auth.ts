@@ -48,3 +48,11 @@ export async function requerirUsuario(rol?: Rol): Promise<UsuarioSesion> {
 
   return usuario;
 }
+
+/**
+ * Usuario fijo con el que actúan los endpoints mientras no hay sesión real.
+ * El seed lo crea con este id para poder probar la API localmente sin cookies.
+ *
+ * TODO (paso 8): eliminarlo y obtener el usuario desde Auth.js.
+ */
+export const USUARIO_DE_EJEMPLO_ID = "usuario-de-ejemplo";

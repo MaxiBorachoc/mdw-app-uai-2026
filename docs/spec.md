@@ -101,6 +101,15 @@ Criterios de aceptacion:
 - [ ] Dado que el owner entra a su listado de proyectos, cuando se muestra la pantalla, entonces ve
       el proyecto creado.
 - [ ] Caso de error: si el nombre esta vacio, no se guarda y se muestra el motivo.
+- [ ] Cuando el owner edita nombre o descripcion del proyecto, entonces los cambios quedan guardados.
+      Ningun otro rol puede editarlos.
+- [ ] Caso de error: si quien intenta editar el proyecto no es su owner, el sistema rechaza la accion
+      aunque la llamada no venga de la interfaz.
+- [ ] Cuando el owner elimina el proyecto, entonces el sistema le advierte que se va a perder toda la
+      documentacion (incluidas las versiones cerradas, ver regla de borrado en la seccion 3) y le pide
+      confirmar la eliminacion una segunda vez antes de ejecutarla. Ningun otro rol puede eliminarlo.
+- [ ] Caso de error: si quien intenta eliminar el proyecto no es su owner, el sistema rechaza la
+      accion aunque la llamada no venga de la interfaz.
 
 ### H2 - Administrar miembros del proyecto
 

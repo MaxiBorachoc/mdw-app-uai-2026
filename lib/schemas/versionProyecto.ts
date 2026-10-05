@@ -54,3 +54,18 @@ export const VersionProyectoItemSchema = z
     { message: "Exactamente uno de los dos campos va completo, según el tipo" },
   );
 export type VersionProyectoItem = z.infer<typeof VersionProyectoItemSchema>;
+
+/** Entrada del cierre de la versión en desarrollo (H8). */
+export const cerrarVersionProyectoSchema = z
+  .object({
+    numeroVersion: numeroEntero,
+    numeroBuild: numeroEntero,
+    numeroPatch: numeroEntero,
+    nombre: z.string().trim().optional(),
+    descripcion: z.string().trim().optional(),
+  })
+  .refine(
+    (datos) => datos.numeroVersion > 0 || datos.numeroBuild > 0 || datos.numeroPatch > 0,
+    { message: "La combinación 0.0.0 no es válida", path: ["numeroPatch"] },
+  );
+export type CerrarVersionProyectoInput = z.infer<typeof cerrarVersionProyectoSchema>;
