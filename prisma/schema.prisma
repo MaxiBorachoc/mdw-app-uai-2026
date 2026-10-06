@@ -42,6 +42,8 @@ enum EstadoInvitacion {
   RECHAZADA
 }
 
+// Una persona con cuenta. Se crea (o actualiza el nombre) en el primer login
+// con Google, dentro del callback jwt de auth.ts — no hay registro aparte.
 model Usuario {
   id       String   @id @default(cuid())
   email    String   @unique
@@ -52,7 +54,6 @@ model Usuario {
   membresias         MiembroProyecto[]
   historiaVersiones  HistoriaUsuarioVersion[]
   actividadVersiones ActividadVersion[]
-  versionesCerradas  VersionProyecto[]
 }
 
 model Proyecto {
@@ -212,6 +213,10 @@ model ConexionActividad {
 //
 // Solo puede haber una version EN_DESARROLLO por proyecto a la vez: se valida en
 // lib/db (ver tambien la migracion que agrega el indice unico parcial).
+//
+// A proposito, no tiene autor: documenta el estado del proyecto en un momento,
+// no algo que una persona firma (a diferencia de HistoriaUsuarioVersion y
+// ActividadVersion, que si tienen autorId). Ver docs/spec.md seccion 3.
 model VersionProyecto {
   id       String                @id @default(cuid())
   estado   EstadoVersionProyecto @default(EN_DESARROLLO)
@@ -228,14 +233,10 @@ model VersionProyecto {
   proyectoId String
   proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
 
-  autorId String
-  autor   Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
-
   items VersionProyectoItem[]
 
   @@unique([proyectoId, numeroVersion, numeroBuild, numeroPatch])
   @@index([proyectoId])
-  @@index([autorId])
 }
 
 // Referencia a la version exacta (de historia o actividad) vigente al cerrar una

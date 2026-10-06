@@ -73,12 +73,15 @@ queda en el log del servidor.
 | Operación | Situación | Status | Mensaje | Sale de la spec |
 |---|---|---|---|---|
 | POST `/api/proyectos` | El nombre está vacío | 400 | `El nombre del proyecto es obligatorio` (en `detalles.fieldErrors.nombre`) | H1, caso de error |
+| POST `/api/proyectos`, PUT `/api/proyectos/:id` | El nombre supera 100 caracteres | 400 | `El nombre del proyecto no puede superar los 100 caracteres` (en `detalles.fieldErrors.nombre`) | H1, caso de error (longitud máxima, spec sección 3) |
+| POST `/api/proyectos`, PUT `/api/proyectos/:id` | La descripción supera 500 caracteres | 400 | `La descripción del proyecto no puede superar los 500 caracteres` (en `detalles.fieldErrors.descripcion`) | H1, caso de error (longitud máxima, spec sección 3) |
 | PUT `/api/proyectos/:id` | El nombre está vacío | 400 | `El nombre del proyecto es obligatorio` | H1, caso de error (misma regla al editar) |
 | PUT `/api/proyectos/:id` | Es miembro pero no `OWNER` | 403 | `Tu rol en este proyecto no permite esta operación` | H1, caso de error |
 | DELETE `/api/proyectos/:id` | Es miembro pero no `OWNER` | 403 | `Tu rol en este proyecto no permite esta operación` | H1, caso de error |
 | GET/PUT/DELETE `/api/proyectos/:id`, POST `.../cerrar-version` | No es miembro del proyecto, o el proyecto no existe | 404 | `Proyecto no encontrado` | H9, caso de error (usuario que no pertenece al proyecto) |
 | POST `.../cerrar-version` | Es miembro pero no `OWNER` ni `EDITOR` | 403 | `Tu rol en este proyecto no permite esta operación` | Sección 6: solo owner y editor modifican documentación |
 | POST `.../cerrar-version` | `Version`, `Build` o `Patch` no son enteros no negativos | 400 | Mensaje de Zod por campo (en `detalles.fieldErrors`) | H8, caso de error |
+| POST `.../cerrar-version` | El nombre supera 100 caracteres, o la descripción supera 1000 | 400 | `El nombre de la versión no puede superar los 100 caracteres` / `La descripción de la versión no puede superar los 1000 caracteres` (en `detalles.fieldErrors`) | H8, longitud máxima (spec sección 3) |
 | POST `.../cerrar-version` | La combinación es `0.0.0` | 400 | `La combinación 0.0.0 no es válida` (en `detalles.fieldErrors.numeroPatch`) | H8, caso de error |
 | POST `.../cerrar-version` | Ya existe una versión cerrada con esa combinación | 409 | `Ya existe una versión cerrada X.Y.Z en este proyecto` + `codigo: "VERSION_DUPLICADA"` y `versionExistente` | H8, caso de error |
 | POST `.../cerrar-version` | La combinación queda por debajo de la última cerrada | 409 | `La versión X.Y.Z debe quedar por encima de la última versión cerrada (A.B.C)` + `codigo: "VERSION_NO_ASCENDENTE"` y `ultimaVersionCerrada` | H8, caso de error |

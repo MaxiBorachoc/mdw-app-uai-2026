@@ -20,7 +20,12 @@ const ESPERA_ENTRE_INTENTOS_MS = 500;
 // Remitente de prueba de Resend: funciona sin verificar un dominio propio,
 // pero en ese modo Resend solo entrega a la casilla de la cuenta (ver
 // docs/spec.md seccion 8, "Limitacion conocida del entorno de pruebas").
-const REMITENTE = "Documentacion Versionada <onboarding@resend.dev>";
+// Cuando se verifique un dominio, se cambia con MAIL_REMITENTE (sin tocar codigo).
+const REMITENTE_DE_PRUEBA = "Documentacion Versionada <onboarding@resend.dev>";
+
+function remitente() {
+  return process.env.MAIL_REMITENTE || REMITENTE_DE_PRUEBA;
+}
 
 function obtenerCliente() {
   const clave = process.env.RESEND_API_KEY;
@@ -64,7 +69,7 @@ export async function enviarCorreo(destinatario: string, asunto: string, html: s
   for (let intento = 1; intento <= INTENTOS; intento++) {
     try {
       const { error } = await conTimeout(
-        cliente.emails.send({ from: REMITENTE, to: destinatario, subject: asunto, html }),
+        cliente.emails.send({ from: remitente(), to: destinatario, subject: asunto, html }),
         TIMEOUT_MS,
       );
       if (error) throw error;

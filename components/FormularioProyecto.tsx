@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * Formulario de H1 (crear proyecto). Es el unico componente "use client" del
+ * proyecto hoy: necesita useActionState para mostrar el error de validacion
+ * sin perder lo que el usuario ya escribio. Llama a crearProyectoAction
+ * (app/actions/proyectos.ts), que valida y crea el proyecto en el servidor.
+ */
 import { useActionState } from "react";
 import { crearProyectoAction, type EstadoCrearProyecto } from "@/app/actions/proyectos";
 

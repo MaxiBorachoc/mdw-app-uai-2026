@@ -1,3 +1,8 @@
+/**
+ * Boton de login con Google. Server Component puro: el signIn corre en el
+ * servidor via una Server Action inline, asi que no hace falta "use client"
+ * ni JavaScript en el navegador.
+ */
 import { signIn } from "@/auth";
 
 export function BotonLogin() {

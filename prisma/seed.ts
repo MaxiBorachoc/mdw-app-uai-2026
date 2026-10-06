@@ -142,7 +142,6 @@ async function main() {
       descripcion: "Cierre de ejemplo para probar el historial de versiones.",
       cerradaEl: new Date(),
       proyectoId: proyecto.id,
-      autorId: admin.id,
       items: {
         connectOrCreate: [
           {
@@ -182,7 +181,6 @@ async function main() {
       id: "version-proyecto-ejemplo-en-desarrollo",
       estado: "EN_DESARROLLO",
       proyectoId: proyecto.id,
-      autorId: admin.id,
     },
   });
 

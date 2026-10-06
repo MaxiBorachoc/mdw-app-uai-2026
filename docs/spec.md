@@ -53,7 +53,7 @@ Los sustantivos que aparecen en las historias de usuario. De aca sale el modelo 
 | **Actividad** | Nodo estable del diagrama de actividades; puede tener una actividad padre | Proyecto (N-1), Actividad padre (N-1 opcional), ActividadVersion (1-N), conexiones |
 | **ActividadVersion** | Revision inmutable de la documentacion de una actividad; marca si esa revision la deja eliminada | Actividad (N-1), Usuario creador (N-1), VersionProyectoItem (1-N) |
 | **ConexionActividad** | Flecha entre dos actividades del mismo diagrama | Actividad origen (N-1), Actividad destino (N-1), Proyecto (N-1) |
-| **VersionProyecto** | Hito con nombre del proyecto (antes "Checkpoint"); tiene estado `en_desarrollo` (sin numero, es donde se edita, como maximo una por proyecto) o `cerrada` (identificada por `Version.Build.Patch`, captura el estado completo de la documentacion en ese momento) | Proyecto (N-1), Usuario que la cerro (N-1, solo si esta cerrada), VersionProyectoItem (1-N si esta cerrada) |
+| **VersionProyecto** | Hito con nombre del proyecto (antes "Checkpoint"); tiene estado `en_desarrollo` (sin numero, es donde se edita, como maximo una por proyecto) o `cerrada` (identificada por `Version.Build.Patch`, captura el estado completo de la documentacion en ese momento); sin autor (ver nota mas abajo) | Proyecto (N-1), VersionProyectoItem (1-N si esta cerrada) |
 | **VersionProyectoItem** | Referencia a la version exacta de una historia o actividad incluida en una version de proyecto cerrada | VersionProyecto (N-1), HistoriaUsuarioVersion o ActividadVersion |
 
 **Relacion N-N:** un usuario participa en muchos proyectos y un proyecto tiene muchos usuarios, a

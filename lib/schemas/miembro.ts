@@ -1,17 +1,18 @@
 /**
- * Entidad MiembroProyecto (la relacion N-N entre Usuario y Proyecto, con el rol
- * que ese usuario tiene dentro de ese proyecto) y los schemas de entrada de H2
+ * Entidad MiembroProyecto (la relacion N-N entre Usuario y Proyecto, con el
+ * rol y el estado de la invitacion) y los schemas de entrada de H2
  * (colaboradores): agregar uno por email y cambiar el rol de uno existente.
  * Los usan los dos archivos bajo app/api/proyectos/[id]/miembros/.
  */
 import { z } from "zod";
-import { IdSchema, RolProyectoSchema } from "./comun";
+import { EstadoInvitacionSchema, IdSchema, RolProyectoSchema } from "./comun";
 
 export const MiembroProyectoSchema = z.object({
   id: IdSchema,
   usuarioId: IdSchema,
   proyectoId: IdSchema,
   rol: RolProyectoSchema,
+  estado: EstadoInvitacionSchema,
   creadoEn: z.date(),
 });
 export type MiembroProyecto = z.infer<typeof MiembroProyectoSchema>;

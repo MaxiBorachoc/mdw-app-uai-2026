@@ -46,6 +46,20 @@ Content-Type: application/json
 
 { "nombre": "", "descripcion": "sin nombre" }
 
+### 400 nombre de más de 100 caracteres (poner 101 letras)
+POST {{baseUrl}}/api/proyectos
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "nombre": "PEGAR_AQUI_101_LETRAS", "descripcion": "" }
+
+### 400 descripción de más de 500 caracteres (poner 501 letras)
+POST {{baseUrl}}/api/proyectos
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "nombre": "Proyecto de prueba", "descripcion": "PEGAR_AQUI_501_LETRAS" }
+
 ### 401 sin sesión
 POST {{baseUrl}}/api/proyectos
 Content-Type: application/json
@@ -110,6 +124,13 @@ Cookie: {{sesion}}
 Content-Type: application/json
 
 { "numeroVersion": 0, "numeroBuild": 0, "numeroPatch": 0 }
+
+### 400 nombre de versión de más de 100 caracteres (poner 101 letras)
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 0, "nombre": "PEGAR_AQUI_101_LETRAS" }
 
 ### 400 número negativo
 POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
@@ -326,3 +347,25 @@ Cookie: {{sesionInvitado}}
 ### rechazar — 409 ya fue respondida (después del 200 feliz)
 GET {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/{{usuarioColaboradorId}}/rechazar
 Cookie: {{sesionInvitado}}
+
+# ---------- Falla del servicio de mail (clase 7) ----------
+# El mail es un servicio accesorio: la operacion principal se completa aunque el mail falle.
+# Para verlo, cambiá UNA letra de RESEND_API_KEY en .env.local, reiniciá el servidor y ejecutá esta
+# request (invitar a un colaborador).
+#
+# Qué se espera:
+#   - La respuesta es 201 igual: la invitación queda creada en estado PENDIENTE.
+#   - En el log del servidor aparecen 3 líneas "mail: intento N/3 fallo al enviar a ..." con el motivo
+#     (por ejemplo, "API key is invalid"), y nada más: el error no llega al usuario.
+#   - El sistema queda consistente: GET .../miembros muestra la invitación pendiente.
+# Lo mismo pasa al quitar a un colaborador (DELETE .../miembros/:usuarioId) y al eliminar un proyecto.
+#
+# Probá también el caso de un servicio que tarda: el timeout corta cada intento a los 5 segundos.
+# Restaurá la API key cuando termines.
+
+### 201 aunque el mail falle (con la API key rota)
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "email": "{{emailColaborador}}", "rol": "EDITOR" }

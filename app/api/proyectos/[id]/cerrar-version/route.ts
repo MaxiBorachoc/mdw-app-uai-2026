@@ -41,7 +41,7 @@ export async function POST(request: Request, { params }: Contexto) {
       return respuestaConflicto(veredicto, nueva);
     }
 
-    const cierre = await cerrarVersionEnDesarrollo(id, nueva, acceso.usuario.id);
+    const cierre = await cerrarVersionEnDesarrollo(id, nueva);
     if (!cierre.ok) {
       // Otro cierre simultaneo tomo la misma combinacion entre el chequeo y la escritura.
       return respuestaConflicto({ ok: false, motivo: "DUPLICADA", version: nueva }, nueva);

@@ -61,7 +61,7 @@ export async function crearProyecto(datos: CrearProyectoInput, ownerId: string) 
       },
       // Spec seccion 6: todo proyecto tiene siempre una version EN_DESARROLLO.
       versiones: {
-        create: { estado: "EN_DESARROLLO", autorId: ownerId },
+        create: { estado: "EN_DESARROLLO" },
       },
     },
     select: { id: true, nombre: true, descripcion: true, creadoEn: true, ownerId: true },
