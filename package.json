@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:seed": "prisma db seed",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:preparar-profesor": "tsx scripts/preparar-profesor.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",

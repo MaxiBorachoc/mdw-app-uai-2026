@@ -35,7 +35,7 @@ export default async function Home() {
         <div>
           <h1 className="text-2xl font-bold">Documentación Versionada</h1>
           <p className="mt-2 text-sm opacity-70">
-            Equipo: Maxi Borachoc, Enzo Cornejo, Gabriel Colombano.
+            Equipo: Maxi Borachoc, Enzo Cornejo, Gabriel Colombano, Benjamin Bodrero.
           </p>
         </div>
         {usuario ? (

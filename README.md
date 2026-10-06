@@ -7,7 +7,7 @@
 - Gabriel Colombano
 - Benjamin Bodrero
 
-**Producción:** la URL del proyecto en Vercel (Project → Domains); no está escrita en el código
+**Producción:** [https://mdw-app-uai-bcc.vercel.app/](https://mdw-app-uai-bcc.vercel.app/)
 **Problema que resuelve:** Evita la pérdida o sobrescritura del contexto de la documentación de un
 proyecto de software, permitiendo conservar y consultar versiones anteriores de historias de
 usuario, actividades y diagramas.
