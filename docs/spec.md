@@ -210,15 +210,14 @@ Criterios de aceptacion:
 
 > No hay un maximo de colaboradores por proyecto.
 >
-> **TODO (clase 7):**
-> - Definir el circuito completo de invitacion por correo: enviarla, que el usuario invitado la
->   acepte o la rechace desde ahi, y que el dueño pueda re-invitar a quien rechazo.
-> - Junto con la re-invitacion, definir un limite contra el spam de invitaciones repetidas (por
->   ejemplo, cuantas veces o cada cuanto se puede re-invitar al mismo usuario). Mientras no exista
->   el circuito de re-invitacion no hace falta, porque no se puede invitar dos veces a quien ya esta
->   pendiente o aceptado (ver caso de error de "ya es colaborador").
-> - Definir si hace falta avisarle al dueño cuando un usuario rechaza su invitacion (hoy no se le
->   avisa).
+> **Implementado en la clase 7:** el circuito completo de invitacion por correo (enviarla, que el
+> usuario invitado la acepte o la rechace desde ahi, y que el dueño pueda re-invitar a quien
+> rechazo). Ver `lib/servicios/mail.ts` y los endpoints `.../aceptar` y `.../rechazar` en
+> `docs/api.md`.
+>
+> **Mejoras futuras, no pedidas por ninguna clase y no implementadas:** un limite contra el spam de
+> invitaciones repetidas (cuantas veces o cada cuanto se puede re-invitar al mismo usuario), y avisarle
+> al dueño cuando un usuario rechaza su invitacion (hoy no se le avisa).
 
 ### H3 - Registrar una historia de usuario
 
@@ -504,38 +503,39 @@ Esta lista es **igual para todos los proyectos**: no hay que adaptarla, hay que 
 
 ## 8. Integracion externa
 
-**Cual:** email transaccional (parte del nucleo obligatorio del MVP, no opcional).
+**Cual:** email transaccional, con Resend (parte del nucleo obligatorio del MVP, no opcional).
 
-> Esta seccion describe el objetivo: todavia no se integro ningun servicio de mail (queda para la
-> clase 7), asi que hoy el sistema no envia ninguno de estos correos. Mientras tanto, H1 y H2
-> completan la accion igual y simplemente no notifican por mail (ver el detalle de cada caso en H1
-> y H2).
+**Por que Resend:** SDK simple, buena integracion con Next.js. El profesor no exige un proveedor
+puntual (da como ejemplos Resend, Brevo, Mailgun); Resend fue nuestra eleccion.
 
-**Para que se usa:**
-- Invitar a un usuario a colaborar en un proyecto (H2): el correo incluye el rol ofrecido y un
-  enlace para aceptar o rechazar la invitacion. Hasta que exista, agregar un colaborador se presume
-  aceptado de una (ver H2).
-- Avisar a un colaborador cuando el dueño lo quita del proyecto (H2), sea cual sea el estado de su
-  invitacion (correo de despedida).
-- Avisar a los colaboradores de un proyecto cuando el dueño lo elimina (H1).
+> **Limitacion conocida del entorno de pruebas:** sin verificar un dominio propio en Resend, solo se
+> puede enviar correos a la casilla con la que se creo la cuenta. Mientras no se verifique un
+> dominio, la demostracion en produccion (y cualquier prueba manual) se hace enviando el correo a esa
+> misma casilla, sea cual sea el destinatario real (colaborador invitado, quitado, etc.). El codigo
+> no cambia el dia que se verifique un dominio: es una limitacion de la cuenta, no del modulo.
+
+**Para que se usa — una fila por operacion, esencial o accesoria segun si esa operacion tiene
+sentido aunque el correo nunca salga:**
+
+| Operacion | Correo | Esencial / Accesoria | Si el mail falla | Que ve el usuario |
+|---|---|---|---|---|
+| Invitar a un colaborador (H2) | Invitacion con el rol ofrecido y un enlace para aceptar o rechazar | **Accesoria.** La invitacion queda creada en estado pendiente igual; el mail es hoy el unico canal para que el invitado se entere, pero eso no es una dependencia del sistema, es que no existe (todavia) otro canal | Se reintenta (ver mas abajo); si se agotan los reintentos, la invitacion sigue pendiente en la base y el dueño la ve en la lista de colaboradores | El dueño ve la invitacion como "pendiente" de todas formas. El invitado no ve nada hasta que el correo le llegue (o el dueño lo re-invite) |
+| Quitar a un colaborador, o "No colaborar" (H2) | Correo de despedida | **Accesoria.** Quitar el acceso ya paso en la base cuando el mail se intenta enviar | Se reintenta; si falla del todo, se registra el error y no se revierte la baja | El colaborador pierde el acceso al instante, se entere o no por mail |
+| Eliminar un proyecto (H1) | Aviso a los colaboradores | **Accesoria.** El proyecto ya esta borrado cuando el mail se intenta enviar | Se reintenta; si falla del todo, se registra el error y no se revierte el borrado | El dueño ve el proyecto eliminado al instante; los colaboradores pueden no enterarse si el mail no llega |
 
 **No se envia correo:**
 - Al cerrar una version de proyecto (H8): una version de proyecto no tiene autor y hoy no esta
   definido un correo para este evento.
 - Al cambiar el rol de un colaborador (H2).
+- Al rechazar una invitacion: no se le avisa al dueño (ver TODO de re-invitacion en H2).
 
 **Idioma:** todos los correos se redactan en espanol.
 
-**Reintentos:** si el envio de un correo falla, el sistema reintenta.
+**Timeout:** 5 segundos por intento. Ninguna llamada a Resend se hace sin timeout.
 
-**Que pasa si el servicio de mail se cae:**
-- Para el correo de despedida y el de eliminacion de proyecto, la accion que lo dispara (quitar a un
-  colaborador, eliminar el proyecto) se completa igual: el mail es una notificacion adicional. Si el
-  envio falla, se reintenta, y si se agotan los reintentos, se registra el error pero no se revierte
-  la operacion.
-- Para la invitacion es distinto: como el acceso del invitado depende de que la reciba y la acepte,
-  si el correo nunca llega el usuario invitado nunca puede aceptar. No hay hoy otra forma de aceptar
-  una invitacion.
+**Reintentos:** hasta 3 intentos por correo (el original + 2 reintentos), con una espera corta entre
+cada uno. Si los 3 fallan, se registra el error en el log y la operacion que disparo el correo *no*
+se revierte: ver la columna "Si el mail falla" de la tabla de arriba.
 
 **Fuera de alcance por ahora:**
 - Exportar versiones de proyecto o documentacion a PDF.
