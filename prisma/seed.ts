@@ -36,7 +36,7 @@ async function main() {
       miembros: {
         connectOrCreate: {
           where: { usuarioId_proyectoId: { usuarioId: admin.id, proyectoId: "proyecto-ejemplo" } },
-          create: { usuarioId: admin.id, rol: "OWNER" },
+          create: { usuarioId: admin.id, rol: "OWNER", estado: "ACEPTADA" },
         },
       },
     },

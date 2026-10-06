@@ -36,6 +36,12 @@ enum TipoVersionProyectoItem {
   ACTIVIDAD
 }
 
+enum EstadoInvitacion {
+  PENDIENTE
+  ACEPTADA
+  RECHAZADA
+}
+
 model Usuario {
   id       String   @id @default(cuid())
   email    String   @unique
@@ -67,11 +73,15 @@ model Proyecto {
   @@index([ownerId])
 }
 
-// Relacion N-N entre Usuario y Proyecto, con dato propio: el rol dentro de ese proyecto.
+// Relacion N-N entre Usuario y Proyecto, con dato propio: el rol y el estado de
+// la invitacion. Sin @default a proposito: cada lugar que crea una fila (el
+// owner al crear el proyecto, o invitarMiembro) tiene que decidir el estado
+// explicitamente, para que no quede "aceptada" por accidente (ver clase 7).
 model MiembroProyecto {
-  id       String      @id @default(cuid())
+  id       String           @id @default(cuid())
   rol      RolProyecto
-  creadoEn DateTime    @default(now())
+  estado   EstadoInvitacion
+  creadoEn DateTime         @default(now())
 
   usuarioId String
   usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)

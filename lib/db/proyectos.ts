@@ -39,6 +39,7 @@ export async function obtenerProyectoDe(id: string, usuarioId: string) {
         select: {
           id: true,
           rol: true,
+          estado: true,
           usuario: { select: { id: true, nombre: true, email: true } },
         },
       },
@@ -56,7 +57,7 @@ export async function crearProyecto(datos: CrearProyectoInput, ownerId: string) 
       ...datos,
       ownerId,
       miembros: {
-        create: { usuarioId: ownerId, rol: "OWNER" },
+        create: { usuarioId: ownerId, rol: "OWNER", estado: "ACEPTADA" },
       },
       // Spec seccion 6: todo proyecto tiene siempre una version EN_DESARROLLO.
       versiones: {

@@ -2,62 +2,129 @@ import { describe, expect, it } from "vitest";
 import {
   puedeQuitarMiembro,
   validarAltaDeMiembro,
-  validarCambioSobreMiembro,
+  validarBajaDeMiembro,
+  validarCambioDeRol,
+  validarRespuestaAInvitacion,
 } from "./miembros-proyecto";
 
 describe("validarAltaDeMiembro", () => {
-  const miembros = [{ usuarioId: "owner" }, { usuarioId: "ana" }];
-
-  it("acepta a un usuario existente que todavia no colabora", () => {
-    expect(validarAltaDeMiembro({ id: "beto" }, "owner", miembros)).toEqual({ ok: true });
+  it("acepta a un usuario existente sin invitacion previa", () => {
+    expect(validarAltaDeMiembro({ id: "beto" }, "owner", null)).toEqual({ ok: true });
   });
 
   it("rechaza un email sin usuario", () => {
-    expect(validarAltaDeMiembro(null, "owner", miembros)).toEqual({
+    expect(validarAltaDeMiembro(null, "owner", null)).toEqual({
       ok: false,
       motivo: "USUARIO_INEXISTENTE",
     });
   });
 
   it("rechaza que el owner se agregue a si mismo", () => {
-    expect(validarAltaDeMiembro({ id: "owner" }, "owner", miembros)).toEqual({
+    expect(validarAltaDeMiembro({ id: "owner" }, "owner", null)).toEqual({
       ok: false,
       motivo: "ES_OWNER",
     });
   });
 
-  it("rechaza a quien ya es colaborador", () => {
-    expect(validarAltaDeMiembro({ id: "ana" }, "owner", miembros)).toEqual({
+  it("rechaza a quien ya tiene una invitacion pendiente", () => {
+    expect(validarAltaDeMiembro({ id: "ana" }, "owner", { estado: "PENDIENTE" })).toEqual({
       ok: false,
       motivo: "YA_ES_MIEMBRO",
     });
   });
 
-  it("borde: un usuario inexistente se informa antes que cualquier otro motivo", () => {
-    expect(validarAltaDeMiembro(null, "owner", [])).toMatchObject({ motivo: "USUARIO_INEXISTENTE" });
+  it("rechaza a quien ya tiene una invitacion aceptada", () => {
+    expect(validarAltaDeMiembro({ id: "ana" }, "owner", { estado: "ACEPTADA" })).toEqual({
+      ok: false,
+      motivo: "YA_ES_MIEMBRO",
+    });
   });
 
-  it("borde: en un proyecto sin colaboradores se puede agregar al primero", () => {
-    expect(validarAltaDeMiembro({ id: "ana" }, "owner", [{ usuarioId: "owner" }])).toEqual({
+  it("borde: acepta re-invitar a quien rechazo antes", () => {
+    expect(validarAltaDeMiembro({ id: "ana" }, "owner", { estado: "RECHAZADA" })).toEqual({
       ok: true,
     });
   });
 });
 
-describe("validarCambioSobreMiembro", () => {
-  it("acepta a un colaborador editor o reader", () => {
-    expect(validarCambioSobreMiembro({ usuarioId: "ana", rol: "EDITOR" })).toEqual({ ok: true });
-    expect(validarCambioSobreMiembro({ usuarioId: "beto", rol: "READER" })).toEqual({ ok: true });
+describe("validarBajaDeMiembro", () => {
+  it("acepta a un colaborador en cualquier estado", () => {
+    expect(validarBajaDeMiembro({ usuarioId: "ana", rol: "EDITOR", estado: "ACEPTADA" })).toEqual({
+      ok: true,
+    });
+    expect(validarBajaDeMiembro({ usuarioId: "ana", rol: "EDITOR", estado: "PENDIENTE" })).toEqual({
+      ok: true,
+    });
+    expect(validarBajaDeMiembro({ usuarioId: "ana", rol: "EDITOR", estado: "RECHAZADA" })).toEqual({
+      ok: true,
+    });
   });
 
   it("rechaza a alguien que no es colaborador", () => {
-    expect(validarCambioSobreMiembro(null)).toEqual({ ok: false, motivo: "NO_ES_MIEMBRO" });
+    expect(validarBajaDeMiembro(null)).toEqual({ ok: false, motivo: "NO_ES_MIEMBRO" });
   });
 
   it("borde: el owner no se toca", () => {
-    expect(validarCambioSobreMiembro({ usuarioId: "owner", rol: "OWNER" })).toEqual({
+    expect(validarBajaDeMiembro({ usuarioId: "owner", rol: "OWNER", estado: "ACEPTADA" })).toEqual({
       ok: false,
       motivo: "ES_OWNER",
+    });
+  });
+});
+
+describe("validarCambioDeRol", () => {
+  it("acepta a un colaborador con invitacion aceptada", () => {
+    expect(validarCambioDeRol({ usuarioId: "ana", rol: "EDITOR", estado: "ACEPTADA" })).toEqual({
+      ok: true,
+    });
+  });
+
+  it("rechaza a alguien que no es colaborador", () => {
+    expect(validarCambioDeRol(null)).toEqual({ ok: false, motivo: "NO_ES_MIEMBRO" });
+  });
+
+  it("rechaza al owner", () => {
+    expect(validarCambioDeRol({ usuarioId: "owner", rol: "OWNER", estado: "ACEPTADA" })).toEqual({
+      ok: false,
+      motivo: "ES_OWNER",
+    });
+  });
+
+  it("borde: rechaza cambiar el rol de una invitacion pendiente", () => {
+    expect(validarCambioDeRol({ usuarioId: "ana", rol: "EDITOR", estado: "PENDIENTE" })).toEqual({
+      ok: false,
+      motivo: "INVITACION_NO_ACEPTADA",
+    });
+  });
+
+  it("borde: rechaza cambiar el rol de una invitacion rechazada", () => {
+    expect(validarCambioDeRol({ usuarioId: "ana", rol: "EDITOR", estado: "RECHAZADA" })).toEqual({
+      ok: false,
+      motivo: "INVITACION_NO_ACEPTADA",
+    });
+  });
+});
+
+describe("validarRespuestaAInvitacion", () => {
+  it("acepta responder una invitacion pendiente", () => {
+    expect(validarRespuestaAInvitacion({ estado: "PENDIENTE" })).toEqual({ ok: true });
+  });
+
+  it("rechaza si no hay invitacion", () => {
+    expect(validarRespuestaAInvitacion(null)).toEqual({ ok: false, motivo: "NO_ES_MIEMBRO" });
+  });
+
+  it("borde: rechaza responder una invitacion ya aceptada", () => {
+    expect(validarRespuestaAInvitacion({ estado: "ACEPTADA" })).toEqual({
+      ok: false,
+      motivo: "YA_RESPONDIDA",
+    });
+  });
+
+  it("borde: rechaza responder una invitacion ya rechazada", () => {
+    expect(validarRespuestaAInvitacion({ estado: "RECHAZADA" })).toEqual({
+      ok: false,
+      motivo: "YA_RESPONDIDA",
     });
   });
 });
