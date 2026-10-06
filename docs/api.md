@@ -85,6 +85,7 @@ queda en el log del servidor.
 | POST `.../cerrar-version` | La combinación es `0.0.0` | 400 | `La combinación 0.0.0 no es válida` (en `detalles.fieldErrors.numeroPatch`) | H8, caso de error |
 | POST `.../cerrar-version` | Ya existe una versión cerrada con esa combinación | 409 | `Ya existe una versión cerrada X.Y.Z en este proyecto` + `codigo: "VERSION_DUPLICADA"` y `versionExistente` | H8, caso de error |
 | POST `.../cerrar-version` | La combinación queda por debajo de la última cerrada | 409 | `La versión X.Y.Z debe quedar por encima de la última versión cerrada (A.B.C)` + `codigo: "VERSION_NO_ASCENDENTE"` y `ultimaVersionCerrada` | H8, caso de error |
+| POST `.../cerrar-version` | La version en desarrollo no tiene cambios | 409 | `La version en desarrollo no tiene cambios` + `codigo: "VERSION_SIN_CAMBIOS"` | H8, caso de error |
 | POST `.../miembros` | El email no es válido, o el rol no es `EDITOR`/`READER` | 400 | Mensaje de Zod por campo (en `detalles.fieldErrors`) | H2 (solo se asignan editor y reader) |
 | POST `.../miembros` | No hay ningún usuario con ese email | 409 | `Se ingresó un usuario inexistente` + `codigo: "USUARIO_INEXISTENTE"` | H2, caso de error |
 | POST `.../miembros` | El email es el del owner | 409 | `El owner del proyecto no puede agregarse como colaborador` + `codigo: "ES_OWNER"` | H2, caso de error |

@@ -146,6 +146,15 @@ Content-Type: application/json
 
 { "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 0 }
 
+### 409 - version en desarrollo sin cambios
+# Ejecutar inmediatamente despues de cerrar una version,
+# antes de crear o editar historias/actividades.
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 1 }
+
 ### 409 por debajo de la última cerrada (después de "200 feliz")
 POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
 Cookie: {{sesion}}

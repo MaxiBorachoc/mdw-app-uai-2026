@@ -5,6 +5,7 @@
 - Maxi Borachoc — responsable del repositorio compartido (creó el repo y tiene la cuenta de Vercel del equipo)
 - Enzo Cornejo
 - Gabriel Colombano
+- Benjamin Bodrero
 
 **Producción:** la URL del proyecto en Vercel (Project → Domains); no está escrita en el código
 **Problema que resuelve:** Evita la pérdida o sobrescritura del contexto de la documentación de un

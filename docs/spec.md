@@ -395,8 +395,7 @@ Criterios de aceptacion:
 
 El recorrido completo, paso a paso, del flujo que da valor al sistema (no un ABM).
 
-1. El dueño crea un proyecto e invita colaboradores con rol editor o lector (hoy quedan aceptados de
-   una; a futuro, cada uno accede una vez que acepta la invitacion por correo, ver H2).
+1. El dueño crea un proyecto e invita colaboradores con rol editor o lector. Cada invitacion queda pendiente hasta que el destinatario la acepta desde el correo    recibido (ver H2 y seccion 8).
 2. Un editor registra historias de usuario con descripcion y criterios de aceptacion.
 3. El equipo arma un diagrama visual creando actividades y conectandolas con flechas.
 4. Si una actividad necesita mas detalle, el editor entra a su diagrama interno y crea
@@ -455,8 +454,7 @@ revisar a mano.
   proyecto). Los roles que el dueño puede asignar a un colaborador son solo editor y lector. No existe
   hoy una forma de transferir la titularidad de un proyecto a otro usuario (ver seccion 9).
 - Invitar a un colaborador crea una invitacion con estado pendiente, aceptada o rechazada; solo con
-  invitacion aceptada tiene acceso al proyecto. Hasta que se integre el correo (clase 7), toda
-  invitacion queda directamente en aceptada (ver H2).
+  invitacion aceptada tiene acceso al proyecto. La invitacion se envia por correo y el destinatario debe aceptarla o rechazarla desde los enlaces recibidos (ver H2 y seccion 8).
 - Un colaborador en estado aceptado es visible para cualquier colaborador del proyecto; uno en
   estado pendiente o rechazado solo es visible para el dueño.
 - Solo se puede invitar a un usuario que ya tenga cuenta (ya haya iniciado sesion).

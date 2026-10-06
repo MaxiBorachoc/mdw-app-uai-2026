@@ -58,6 +58,13 @@ describe("validarCierreDeVersion", () => {
       ultimaCerrada: v(2, 0, 0),
     });
   });
+
+  it("rechaza cerrar una version en desarrollo sin cambios", () => {
+    expect(validarCierreDeVersion(v(1, 0, 0), [], false)).toEqual({
+      ok: false,
+      motivo: "SIN_CAMBIOS",
+    });
+  });
 });
 
 describe("formatearVersion", () => {

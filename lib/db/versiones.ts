@@ -31,6 +31,51 @@ export async function obtenerVersionEnDesarrollo(proyectoId: string) {
   });
 }
 
+export async function versionEnDesarrolloTieneCambios(
+  proyectoId: string,
+): Promise<boolean> {
+  const versionEnDesarrollo = await prisma.versionProyecto.findFirst({
+    where: { proyectoId, estado: "EN_DESARROLLO" },
+    select: { creadoEn: true },
+  });
+
+  // Compatibilidad con proyectos anteriores que pudieran no tener todavía
+  // una version EN_DESARROLLO creada.
+  if (!versionEnDesarrollo) {
+    const [historia, actividad] = await Promise.all([
+      prisma.historiaUsuario.findFirst({
+        where: { proyectoId, versionActualId: { not: null } },
+        select: { id: true },
+      }),
+      prisma.actividad.findFirst({
+        where: { proyectoId, versionActualId: { not: null } },
+        select: { id: true },
+      }),
+    ]);
+
+    return Boolean(historia || actividad);
+  }
+
+  const [historiaModificada, actividadModificada] = await Promise.all([
+    prisma.historiaUsuarioVersion.findFirst({
+      where: {
+        historia: { proyectoId },
+        creadoEn: { gt: versionEnDesarrollo.creadoEn },
+      },
+      select: { id: true },
+    }),
+    prisma.actividadVersion.findFirst({
+      where: {
+        actividad: { proyectoId },
+        creadoEn: { gt: versionEnDesarrollo.creadoEn },
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  return Boolean(historiaModificada || actividadModificada);
+}
+
 // Congela la version actual de cada historia y actividad del proyecto en la
 // version que se cierra, y abre la siguiente version en desarrollo para que
 // el equipo siga trabajando (H8, criterio de aceptacion (a) y (b)).
