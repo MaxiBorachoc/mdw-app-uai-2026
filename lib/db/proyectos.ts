@@ -33,7 +33,11 @@ export async function listarProyectosDe(usuarioId: string, limite: number = LIMI
 
 // Devuelve null si el proyecto no existe o el usuario no es miembro: para quien
 // pregunta, un proyecto ajeno no existe.
-export async function obtenerProyectoDe(id: string, usuarioId: string) {
+export async function obtenerProyectoDe(
+  id: string,
+  usuarioId: string,
+  incluirInvitacionesNoAceptadas: boolean = false,
+) {
   return prisma.proyecto.findFirst({
     where: {
       id,
@@ -51,6 +55,9 @@ export async function obtenerProyectoDe(id: string, usuarioId: string) {
       creadoEn: true,
       owner: { select: { id: true, nombre: true } },
       miembros: {
+        where: incluirInvitacionesNoAceptadas
+          ? undefined
+          : { estado: "ACEPTADA" },
         select: {
           id: true,
           rol: true,

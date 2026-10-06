@@ -25,7 +25,11 @@ export async function GET(_request: Request, { params }: Contexto) {
     const acceso = await requerirAccesoAProyecto(id);
     if (!acceso) return proyectoNoEncontrado();
 
-    const proyecto = await obtenerProyectoDe(id, acceso.usuario.id);
+    const proyecto = await obtenerProyectoDe(
+      id,
+      acceso.usuario.id,
+      acceso.rol === "OWNER",
+    );
     if (!proyecto) return proyectoNoEncontrado();
 
     return NextResponse.json(proyecto);
