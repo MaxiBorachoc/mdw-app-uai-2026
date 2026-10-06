@@ -1,3 +1,7 @@
+/**
+ * Boton de logout. Mismo patron que BotonLogin.tsx: Server Component con una
+ * Server Action inline, sin JavaScript en el cliente.
+ */
 import { signOut } from "@/auth";
 
 export function BotonLogout() {

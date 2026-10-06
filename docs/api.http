@@ -9,8 +9,9 @@
 # @sesion. Nunca commitear el valor real.
 #
 # @proyectoId:        proyecto donde sos OWNER, con al menos una versión 1.0.0 ya cerrada (ver "cerrar 200").
-# @proyectoLectorId:  proyecto donde sos miembro pero solo READER (para los 403).
+# @proyectoLectorId:  proyecto donde sos colaborador con invitación ACEPTADA y rol READER (para los 403).
 # @proyectoAjenoId:   proyecto donde NO sos miembro, o un id inexistente (para los 404).
+# @sesionInvitado (mas abajo, junto a aceptar/rechazar): cookie de OTRO usuario, al que invitaste.
 
 @baseUrl = http://localhost:3000
 @sesion = authjs.session-token=PEGAR_AQUI
@@ -44,6 +45,20 @@ Cookie: {{sesion}}
 Content-Type: application/json
 
 { "nombre": "", "descripcion": "sin nombre" }
+
+### 400 nombre de más de 100 caracteres (poner 101 letras)
+POST {{baseUrl}}/api/proyectos
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "nombre": "PEGAR_AQUI_101_LETRAS", "descripcion": "" }
+
+### 400 descripción de más de 500 caracteres (poner 501 letras)
+POST {{baseUrl}}/api/proyectos
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "nombre": "Proyecto de prueba", "descripcion": "PEGAR_AQUI_501_LETRAS" }
 
 ### 401 sin sesión
 POST {{baseUrl}}/api/proyectos
@@ -110,6 +125,13 @@ Content-Type: application/json
 
 { "numeroVersion": 0, "numeroBuild": 0, "numeroPatch": 0 }
 
+### 400 nombre de versión de más de 100 caracteres (poner 101 letras)
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 0, "nombre": "PEGAR_AQUI_101_LETRAS" }
+
 ### 400 número negativo
 POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
 Cookie: {{sesion}}
@@ -123,6 +145,15 @@ Cookie: {{sesion}}
 Content-Type: application/json
 
 { "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 0 }
+
+### 409 - version en desarrollo sin cambios
+# Ejecutar inmediatamente despues de cerrar una version,
+# antes de crear o editar historias/actividades.
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 1 }
 
 ### 409 por debajo de la última cerrada (después de "200 feliz")
 POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
@@ -252,6 +283,13 @@ Content-Type: application/json
 
 { "rol": "READER" }
 
+### PATCH miembro — 409 la invitación todavía no fue aceptada (justo después de invitar)
+PATCH {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/{{usuarioColaboradorId}}
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "rol": "READER" }
+
 ### PATCH miembro — 403 soy miembro pero no owner
 PATCH {{baseUrl}}/api/proyectos/{{proyectoLectorId}}/miembros/{{usuarioColaboradorId}}
 Cookie: {{sesion}}
@@ -283,3 +321,60 @@ Cookie: {{sesion}}
 ### DELETE miembro — 404 ya no es colaborador
 DELETE {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/{{usuarioColaboradorId}}
 Cookie: {{sesion}}
+
+# ---------- Aceptar / rechazar invitación (H2, clase 7) ----------
+# Estos dos devuelven HTML (se abren desde el link de un correo), no JSON.
+# @sesionInvitado: cookie del USUARIO INVITADO (no la tuya) — solo él puede
+# responder su propia invitación. Para probarlos hace falta invitar primero
+# a un usuario del que también tengas sesión.
+
+@sesionInvitado = authjs.session-token=PEGAR_AQUI
+
+### aceptar — 200 feliz
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/{{usuarioColaboradorId}}/aceptar
+Cookie: {{sesionInvitado}}
+
+### aceptar — 403 no es tu invitación (con TU sesión, no la del invitado)
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/{{usuarioColaboradorId}}/aceptar
+Cookie: {{sesion}}
+
+### aceptar — 409 ya fue respondida (después del 200 feliz)
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/{{usuarioColaboradorId}}/aceptar
+Cookie: {{sesionInvitado}}
+
+### aceptar — 404 no hay invitación para ese usuario
+GET {{baseUrl}}/api/proyectos/{{proyectoAjenoId}}/miembros/{{usuarioColaboradorId}}/aceptar
+Cookie: {{sesionInvitado}}
+
+### aceptar — 401 sin sesión
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/{{usuarioColaboradorId}}/aceptar
+
+### rechazar — 200 feliz (invitar de nuevo antes de correr esto, si ya se aceptó arriba)
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/{{usuarioColaboradorId}}/rechazar
+Cookie: {{sesionInvitado}}
+
+### rechazar — 409 ya fue respondida (después del 200 feliz)
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros/{{usuarioColaboradorId}}/rechazar
+Cookie: {{sesionInvitado}}
+
+# ---------- Falla del servicio de mail (clase 7) ----------
+# El mail es un servicio accesorio: la operacion principal se completa aunque el mail falle.
+# Para verlo, cambiá UNA letra de RESEND_API_KEY en .env.local, reiniciá el servidor y ejecutá esta
+# request (invitar a un colaborador).
+#
+# Qué se espera:
+#   - La respuesta es 201 igual: la invitación queda creada en estado PENDIENTE.
+#   - En el log del servidor aparecen 3 líneas "mail: intento N/3 fallo al enviar a ..." con el motivo
+#     (por ejemplo, "API key is invalid"), y nada más: el error no llega al usuario.
+#   - El sistema queda consistente: GET .../miembros muestra la invitación pendiente.
+# Lo mismo pasa al quitar a un colaborador (DELETE .../miembros/:usuarioId) y al eliminar un proyecto.
+#
+# Probá también el caso de un servicio que tarda: el timeout corta cada intento a los 5 segundos.
+# Restaurá la API key cuando termines.
+
+### 201 aunque el mail falle (con la API key rota)
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/miembros
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "email": "{{emailColaborador}}", "rol": "EDITOR" }

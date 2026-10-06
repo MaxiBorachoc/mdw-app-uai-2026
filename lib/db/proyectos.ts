@@ -11,7 +11,14 @@ const LIMITE_POR_DEFECTO = 50;
 
 export async function listarProyectosDe(usuarioId: string, limite: number = LIMITE_POR_DEFECTO) {
   return prisma.proyecto.findMany({
-    where: { miembros: { some: { usuarioId } } },
+    where: {
+      miembros: {
+        some: {
+          usuarioId,
+          estado: "ACEPTADA",
+        },
+      },
+    },
     take: limite,
     orderBy: { creadoEn: "desc" },
     select: {
@@ -28,7 +35,15 @@ export async function listarProyectosDe(usuarioId: string, limite: number = LIMI
 // pregunta, un proyecto ajeno no existe.
 export async function obtenerProyectoDe(id: string, usuarioId: string) {
   return prisma.proyecto.findFirst({
-    where: { id, miembros: { some: { usuarioId } } },
+    where: {
+      id,
+      miembros: {
+        some: {
+          usuarioId,
+          estado: "ACEPTADA",
+        },
+      },
+    },
     select: {
       id: true,
       nombre: true,
@@ -39,6 +54,7 @@ export async function obtenerProyectoDe(id: string, usuarioId: string) {
         select: {
           id: true,
           rol: true,
+          estado: true,
           usuario: { select: { id: true, nombre: true, email: true } },
         },
       },
@@ -56,11 +72,11 @@ export async function crearProyecto(datos: CrearProyectoInput, ownerId: string) 
       ...datos,
       ownerId,
       miembros: {
-        create: { usuarioId: ownerId, rol: "OWNER" },
+        create: { usuarioId: ownerId, rol: "OWNER", estado: "ACEPTADA" },
       },
       // Spec seccion 6: todo proyecto tiene siempre una version EN_DESARROLLO.
       versiones: {
-        create: { estado: "EN_DESARROLLO", autorId: ownerId },
+        create: { estado: "EN_DESARROLLO" },
       },
     },
     select: { id: true, nombre: true, descripcion: true, creadoEn: true, ownerId: true },
@@ -76,7 +92,16 @@ export async function actualizarProyectoDeOwner(
   datos: CrearProyectoInput,
 ) {
   const { count } = await prisma.proyecto.updateMany({
-    where: { id, miembros: { some: { usuarioId, rol: "OWNER" } } },
+    where: {
+      id,
+      miembros: {
+        some: {
+          usuarioId,
+          rol: "OWNER",
+          estado: "ACEPTADA",
+        },
+      },
+    },
     data: datos,
   });
   if (count === 0) return null;
@@ -93,7 +118,16 @@ export async function actualizarProyectoDeOwner(
 // Devuelve false si el proyecto no existe o el usuario no es su OWNER.
 export async function eliminarProyectoDeOwner(id: string, usuarioId: string) {
   const { count } = await prisma.proyecto.deleteMany({
-    where: { id, miembros: { some: { usuarioId, rol: "OWNER" } } },
+    where: {
+      id,
+      miembros: {
+        some: {
+          usuarioId,
+          rol: "OWNER",
+          estado: "ACEPTADA",
+        },
+      },
+    },
   });
   return count > 0;
 }

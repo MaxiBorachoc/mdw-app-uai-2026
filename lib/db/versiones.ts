@@ -1,6 +1,7 @@
 /**
- * H8: cierre de una versión de proyecto. Al cerrar se congelan las revisiones
- * actuales de historias y actividades, y se abre la siguiente versión.
+ * H8: cerrar la version en desarrollo de un proyecto. No es un ABM — es la
+ * operacion del flujo principal que mueve al proyecto de un hito al
+ * siguiente (ver docs/spec.md seccion 4, H8).
  */
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
@@ -30,15 +31,61 @@ export async function obtenerVersionEnDesarrollo(proyectoId: string) {
   });
 }
 
-export async function cerrarVersionEnDesarrollo(
+export async function versionEnDesarrolloTieneCambios(
   proyectoId: string,
-  datos: CerrarVersionProyectoInput,
-  autorId: string,
-) {
+): Promise<boolean> {
+  const versionEnDesarrollo = await prisma.versionProyecto.findFirst({
+    where: { proyectoId, estado: "EN_DESARROLLO" },
+    select: { creadoEn: true },
+  });
+
+  // Compatibilidad con proyectos anteriores que pudieran no tener todavía
+  // una version EN_DESARROLLO creada.
+  if (!versionEnDesarrollo) {
+    const [historia, actividad] = await Promise.all([
+      prisma.historiaUsuario.findFirst({
+        where: { proyectoId, versionActualId: { not: null } },
+        select: { id: true },
+      }),
+      prisma.actividad.findFirst({
+        where: { proyectoId, versionActualId: { not: null } },
+        select: { id: true },
+      }),
+    ]);
+
+    return Boolean(historia || actividad);
+  }
+
+  const [historiaModificada, actividadModificada] = await Promise.all([
+    prisma.historiaUsuarioVersion.findFirst({
+      where: {
+        historia: { proyectoId },
+        creadoEn: { gt: versionEnDesarrollo.creadoEn },
+      },
+      select: { id: true },
+    }),
+    prisma.actividadVersion.findFirst({
+      where: {
+        actividad: { proyectoId },
+        creadoEn: { gt: versionEnDesarrollo.creadoEn },
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  return Boolean(historiaModificada || actividadModificada);
+}
+
+// Congela la version actual de cada historia y actividad del proyecto en la
+// version que se cierra, y abre la siguiente version en desarrollo para que
+// el equipo siga trabajando (H8, criterio de aceptacion (a) y (b)).
+export async function cerrarVersionEnDesarrollo(proyectoId: string, datos: CerrarVersionProyectoInput) {
+  // Los proyectos creados antes de que crearProyecto abriera la primera version
+  // no tienen una EN_DESARROLLO: se la crea aca para respetar la regla de la spec.
   const versionEnDesarrollo =
     (await obtenerVersionEnDesarrollo(proyectoId)) ??
     (await prisma.versionProyecto.create({
-      data: { proyectoId, estado: "EN_DESARROLLO", autorId },
+      data: { proyectoId, estado: "EN_DESARROLLO" },
       select: { id: true, proyectoId: true, estado: true },
     }));
 
@@ -67,13 +114,13 @@ export async function cerrarVersionEnDesarrollo(
         cerradaEl: new Date(),
         items: {
           create: [
-            ...historias.map((historia) => ({
+            ...historias.map((h) => ({
               tipo: "HISTORIA" as const,
-              historiaUsuarioVersionId: historia.versionActualId!,
+              historiaUsuarioVersionId: h.versionActualId!,
             })),
-            ...actividades.map((actividad) => ({
+            ...actividades.map((a) => ({
               tipo: "ACTIVIDAD" as const,
-              actividadVersionId: actividad.versionActualId!,
+              actividadVersionId: a.versionActualId!,
             })),
           ],
         },
@@ -91,7 +138,7 @@ export async function cerrarVersionEnDesarrollo(
     });
 
     const siguiente = await tx.versionProyecto.create({
-      data: { proyectoId, estado: "EN_DESARROLLO", autorId },
+      data: { proyectoId, estado: "EN_DESARROLLO" },
       select: { id: true, estado: true },
     });
 

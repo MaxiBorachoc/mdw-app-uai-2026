@@ -7,7 +7,11 @@
  */
 import { NextResponse } from "next/server";
 import { cerrarVersionProyectoSchema } from "@/lib/schemas/versionProyecto";
-import { cerrarVersionEnDesarrollo, listarVersionesCerradas } from "@/lib/db/versiones";
+import {
+  cerrarVersionEnDesarrollo,
+  listarVersionesCerradas,
+  versionEnDesarrolloTieneCambios,
+} from "@/lib/db/versiones";
 import {
   formatearVersion,
   validarCierreDeVersion,
@@ -36,12 +40,21 @@ export async function POST(request: Request, { params }: Contexto) {
     }
     const nueva = resultado.data;
 
-    const veredicto = validarCierreDeVersion(nueva, await listarVersionesCerradas(id));
+    const [cerradas, tieneCambios] = await Promise.all([
+      listarVersionesCerradas(id),
+      versionEnDesarrolloTieneCambios(id),
+    ]);
+
+    const veredicto = validarCierreDeVersion(
+      nueva,
+      cerradas,
+      tieneCambios,
+    );
     if (!veredicto.ok) {
       return respuestaConflicto(veredicto, nueva);
     }
 
-    const cierre = await cerrarVersionEnDesarrollo(id, nueva, acceso.usuario.id);
+    const cierre = await cerrarVersionEnDesarrollo(id, nueva);
     if (!cierre.ok) {
       // Otro cierre simultaneo tomo la misma combinacion entre el chequeo y la escritura.
       return respuestaConflicto({ ok: false, motivo: "DUPLICADA", version: nueva }, nueva);
@@ -54,6 +67,16 @@ export async function POST(request: Request, { params }: Contexto) {
 }
 
 function respuestaConflicto(veredicto: Extract<VeredictoCierre, { ok: false }>, nueva: NumeroVersion) {
+  if (veredicto.motivo === "SIN_CAMBIOS") {
+    return NextResponse.json(
+      {
+        error: "La version en desarrollo no tiene cambios",
+        codigo: "VERSION_SIN_CAMBIOS",
+      },
+      { status: 409 },
+    );
+  }
+
   if (veredicto.motivo === "DUPLICADA") {
     return NextResponse.json(
       {

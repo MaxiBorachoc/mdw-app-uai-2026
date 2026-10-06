@@ -4,10 +4,24 @@
 import { z } from "zod";
 import { IdSchema } from "./comun";
 
+// Longitudes maximas: docs/spec.md seccion 3.
+export const NOMBRE_PROYECTO_MAX = 100;
+export const DESCRIPCION_PROYECTO_MAX = 500;
+
 export const ProyectoSchema = z.object({
   id: IdSchema,
-  nombre: z.string().trim().min(1, "El nombre del proyecto es obligatorio"),
-  descripcion: z.string().trim(),
+  nombre: z
+    .string()
+    .trim()
+    .min(1, "El nombre del proyecto es obligatorio")
+    .max(NOMBRE_PROYECTO_MAX, `El nombre del proyecto no puede superar los ${NOMBRE_PROYECTO_MAX} caracteres`),
+  descripcion: z
+    .string()
+    .trim()
+    .max(
+      DESCRIPCION_PROYECTO_MAX,
+      `La descripción del proyecto no puede superar los ${DESCRIPCION_PROYECTO_MAX} caracteres`,
+    ),
   creadoEn: z.date(),
   ownerId: IdSchema,
 });

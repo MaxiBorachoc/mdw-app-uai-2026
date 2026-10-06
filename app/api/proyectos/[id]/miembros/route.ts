@@ -1,13 +1,20 @@
 /**
- * H2 — Listar y agregar colaboradores de un proyecto.
+ * H2 — Listar y agregar (invitar) colaboradores de un proyecto.
  *
  * Orden de las preguntas del handler: sesion (401), pertenencia (404), rol (403),
- * body (400), regla (409), consulta.
+ * body (400), regla (409), consulta. El mail de invitacion es accesorio (ver
+ * docs/spec.md seccion 8): va DESPUES de que la invitacion ya quedo creada.
  */
 import { NextResponse } from "next/server";
 import { agregarMiembroSchema } from "@/lib/schemas/miembro";
 import { validarAltaDeMiembro } from "@/lib/miembros-proyecto";
-import { agregarMiembro, buscarUsuarioPorEmail, listarMiembrosDe } from "@/lib/db/miembros";
+import {
+  buscarUsuarioPorEmail,
+  invitarMiembro,
+  listarMiembrosDe,
+  obtenerMembresia,
+} from "@/lib/db/miembros";
+import { enviarInvitacion } from "@/lib/servicios/mail";
 import { proyectoNoEncontrado, requerirAccesoAProyecto } from "@/lib/api/autorizar";
 import { responderError } from "@/lib/api/errores";
 
@@ -19,7 +26,9 @@ export async function GET(_request: Request, { params }: Contexto) {
     const acceso = await requerirAccesoAProyecto(id);
     if (!acceso) return proyectoNoEncontrado();
 
-    return NextResponse.json(await listarMiembrosDe(id, acceso.usuario.id));
+    // H2: pendientes y rechazadas solo las ve el dueño.
+    const soloAceptados = acceso.rol !== "OWNER";
+    return NextResponse.json(await listarMiembrosDe(id, acceso.usuario.id, soloAceptados));
   } catch (error) {
     return responderError("GET /api/proyectos/:id/miembros", error);
   }
@@ -49,12 +58,8 @@ export async function POST(request: Request, { params }: Contexto) {
     const { email, rol } = resultado.data;
 
     const destino = await buscarUsuarioPorEmail(email);
-    const miembros = await listarMiembrosDe(id, acceso.usuario.id);
-    const veredicto = validarAltaDeMiembro(
-      destino,
-      acceso.usuario.id,
-      miembros.map((m) => ({ usuarioId: m.usuario.id })),
-    );
+    const membresiaExistente = destino ? await obtenerMembresia(destino.id, id) : null;
+    const veredicto = validarAltaDeMiembro(destino, acceso.usuario.id, membresiaExistente);
     if (!veredicto.ok) {
       return NextResponse.json(
         { error: MENSAJE_ALTA[veredicto.motivo], codigo: veredicto.motivo },
@@ -62,16 +67,23 @@ export async function POST(request: Request, { params }: Contexto) {
       );
     }
 
-    const miembro = destino ? await agregarMiembro(id, destino.id, rol) : null;
-    if (!miembro) {
-      // Otro request agrego al mismo usuario entre el chequeo y la escritura.
-      return NextResponse.json(
-        { error: MENSAJE_ALTA.YA_ES_MIEMBRO, codigo: "YA_ES_MIEMBRO" },
-        { status: 409 },
-      );
-    }
+    // destino no puede ser null aca: si lo fuera, el veredicto ya fue USUARIO_INEXISTENTE.
+    const invitacion = await invitarMiembro(id, destino!.id, rol);
 
-    return NextResponse.json(miembro, { status: 201 });
+    // Accesorio (seccion 8): la invitacion ya quedo pendiente en la base
+    // aunque el correo falle.
+    await enviarInvitacion({
+      destinatario: invitacion.usuario.email,
+      nombreProyecto: invitacion.proyecto.nombre,
+      rol,
+      proyectoId: id,
+      usuarioId: destino!.id,
+    });
+
+    return NextResponse.json(
+      { rol: invitacion.rol, estado: invitacion.estado, creadoEn: invitacion.creadoEn, usuario: invitacion.usuario },
+      { status: 201 },
+    );
   } catch (error) {
     return responderError("POST /api/proyectos/:id/miembros", error);
   }

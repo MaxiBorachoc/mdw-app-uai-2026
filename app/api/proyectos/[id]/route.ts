@@ -13,6 +13,7 @@ import {
   eliminarProyectoDeOwner,
   obtenerProyectoDe,
 } from "@/lib/db/proyectos";
+import { enviarAvisoEliminacion } from "@/lib/servicios/mail";
 import { proyectoNoEncontrado, requerirAccesoAProyecto } from "@/lib/api/autorizar";
 import { responderError } from "@/lib/api/errores";
 
@@ -65,8 +66,23 @@ export async function DELETE(_request: Request, { params }: Contexto) {
     const acceso = await requerirAccesoAProyecto(id, ["OWNER"]);
     if (!acceso) return proyectoNoEncontrado();
 
+    // Se lee antes de borrar: despues del cascade ya no queda MiembroProyecto
+    // de donde sacar a quien avisar. Solo colaboradores con invitacion
+    // aceptada (los que de verdad llegaron a acceder al proyecto).
+    const proyecto = await obtenerProyectoDe(id, acceso.usuario.id);
+    const colaboradores =
+      proyecto?.miembros.filter((m) => m.estado === "ACEPTADA" && m.usuario.id !== acceso.usuario.id) ??
+      [];
+
     const eliminado = await eliminarProyectoDeOwner(id, acceso.usuario.id);
     if (!eliminado) return proyectoNoEncontrado();
+
+    // Accesorio (seccion 8): el proyecto ya esta borrado aunque algun correo falle.
+    await Promise.all(
+      colaboradores.map((m) =>
+        enviarAvisoEliminacion({ destinatario: m.usuario.email, nombreProyecto: proyecto!.nombre }),
+      ),
+    );
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {

@@ -1,3 +1,8 @@
+/**
+ * Layout raiz de Next.js: envuelve toda la app. Hoy solo hay una pagina real
+ * (app/page.tsx), asi que este archivo no tiene logica propia mas alla del
+ * HTML base y los metadatos.
+ */
 import type { Metadata } from "next";
 import "./globals.css";
 

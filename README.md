@@ -5,6 +5,7 @@
 - Maxi Borachoc — responsable del repositorio compartido (creó el repo y tiene la cuenta de Vercel del equipo)
 - Enzo Cornejo
 - Gabriel Colombano
+- Benjamin Bodrero
 
 **Producción:** la URL del proyecto en Vercel (Project → Domains); no está escrita en el código
 **Problema que resuelve:** Evita la pérdida o sobrescritura del contexto de la documentación de un
@@ -51,6 +52,9 @@ nuevas: en local van en `.env.local` (no se commitea, hay un modelo en `.env.exa
 | `DIRECT_URL` | Conexión directa que usan las migraciones (puerto 5432) | Supabase → *Connect* |
 | `AUTH_SECRET` | Firma de la sesión | `npx auth secret` (uno distinto por entorno) |
 | `AUTH_GOOGLE_ID` y `AUTH_GOOGLE_SECRET` | Login con Google | Google Cloud Console → Credenciales → ID de cliente OAuth |
+| `RESEND_API_KEY` | Envío de correos | resend.com → API Keys |
+| `APP_URL` | URL pública de la app, sin barra final; arma los links de los correos | `http://localhost:3000` en local; la URL de Vercel en producción |
+| `MAIL_REMITENTE` | Remitente de los correos (opcional) | Si falta se usa el remitente de prueba de Resend. Con un dominio verificado: `Nombre <avisos@tudominio.com>` |
 
 Además de las variables, hay que registrar en Google Cloud Console la URI de redirección
 `<URL de la app>/api/auth/callback/google` (una por entorno: local y producción).

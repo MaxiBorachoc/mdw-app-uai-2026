@@ -2,13 +2,17 @@
  * Autorizacion de los Route Handlers que operan sobre un proyecto. Contesta,
  * en orden, las tres preguntas del handler (ver docs/api.md):
  *
- *   1. ¿hay sesion?           no → lanza NoAutenticado (401)
- *   2. ¿es de este proyecto?  no → devuelve null (el handler responde 404)
- *   3. ¿su rol alcanza?       no → lanza NoAutorizado (403)
+ *   1. ¿hay sesion?              no → lanza NoAutenticado (401)
+ *   2. ¿es colaborador aceptado? no → devuelve null (el handler responde 404)
+ *   3. ¿su rol alcanza?          no → lanza NoAutorizado (403)
  *
  * La pertenencia (2) va antes que el rol (3) porque los roles viven en
- * MiembroProyecto: sin membresia no hay rol que evaluar. Un proyecto ajeno y un
- * proyecto inexistente se responden igual, para no revelar cual de los dos es.
+ * MiembroProyecto: sin membresia no hay rol que evaluar. Un proyecto ajeno, uno
+ * inexistente y una invitacion todavia pendiente o ya rechazada se responden
+ * igual (404): H2 dice que mientras la invitacion no este aceptada, el usuario
+ * no tiene acceso al proyecto. La excepcion son los endpoints de aceptar y
+ * rechazar la invitacion, que leen la membresia ellos mismos sin pasar por
+ * aca, porque para esos dos "pendiente" es justamente el caso que manejan.
  */
 import { NextResponse } from "next/server";
 import type { RolProyecto } from "@prisma/client";
@@ -24,7 +28,7 @@ export async function requerirAccesoAProyecto(
   const usuario = await requerirUsuario();
 
   const membresia = await obtenerMembresia(usuario.id, proyectoId);
-  if (!membresia) return null;
+  if (!membresia || membresia.estado !== "ACEPTADA") return null;
 
   if (rolesPermitidos && !rolesPermitidos.includes(membresia.rol)) {
     throw new NoAutorizado();

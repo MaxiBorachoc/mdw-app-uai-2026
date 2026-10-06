@@ -13,6 +13,7 @@ export type NumeroVersion = {
 
 export type VeredictoCierre =
   | { ok: true }
+  | { ok: false; motivo: "SIN_CAMBIOS" }
   | { ok: false; motivo: "DUPLICADA"; version: NumeroVersion }
   | { ok: false; motivo: "NO_ASCENDENTE"; ultimaCerrada: NumeroVersion };
 
@@ -30,7 +31,11 @@ export function compararVersiones(a: NumeroVersion, b: NumeroVersion): number {
 export function validarCierreDeVersion(
   nueva: NumeroVersion,
   cerradas: NumeroVersion[],
+  tieneCambios: boolean = true,
 ): VeredictoCierre {
+  if (!tieneCambios) {
+    return { ok: false, motivo: "SIN_CAMBIOS" };
+  }
   const repetida = cerradas.find((c) => compararVersiones(c, nueva) === 0);
   if (repetida) {
     return { ok: false, motivo: "DUPLICADA", version: repetida };
