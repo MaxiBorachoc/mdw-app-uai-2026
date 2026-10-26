@@ -1,8 +1,6 @@
-/**
- * Boton de logout. Mismo patron que BotonLogin.tsx: Server Component con una
- * Server Action inline, sin JavaScript en el cliente.
- */
+/** Cierre de sesión con Server Action, sin estado de cliente. */
 import { signOut } from "@/auth";
+import { Button } from "@/components/ui/button";
 
 export function BotonLogout() {
   return (
@@ -12,12 +10,9 @@ export function BotonLogout() {
         await signOut();
       }}
     >
-      <button
-        type="submit"
-        className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
-      >
+      <Button type="submit" variant="outline" size="sm">
         Cerrar sesión
-      </button>
+      </Button>
     </form>
   );
 }

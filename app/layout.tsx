@@ -1,7 +1,6 @@
 /**
- * Layout raiz de Next.js: envuelve toda la app. Hoy solo hay una pagina real
- * (app/page.tsx), asi que este archivo no tiene logica propia mas alla del
- * HTML base y los metadatos.
+ * Layout raíz: define metadatos y aplica los tokens globales del sistema visual.
+ * Las decisiones de color, tipografía y radio viven en app/globals.css.
  */
 import type { Metadata } from "next";
 import "./globals.css";
@@ -19,7 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen bg-background font-sans text-foreground antialiased">{children}</body>
     </html>
   );
 }
