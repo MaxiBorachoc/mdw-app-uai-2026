@@ -1,9 +1,9 @@
 /**
- * Boton de login con Google. Server Component puro: el signIn corre en el
- * servidor via una Server Action inline, asi que no hace falta "use client"
- * ni JavaScript en el navegador.
+ * Botón de login con Google. Sigue siendo Server Component: la acción se
+ * ejecuta en el servidor y el botón solo usa el componente visual compartido.
  */
 import { signIn } from "@/auth";
+import { Button } from "@/components/ui/button";
 
 export function BotonLogin() {
   return (
@@ -13,12 +13,7 @@ export function BotonLogin() {
         await signIn("google");
       }}
     >
-      <button
-        type="submit"
-        className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white"
-      >
-        Iniciar sesión con Google
-      </button>
+      <Button type="submit">Iniciar sesión con Google</Button>
     </form>
   );
 }
