@@ -95,3 +95,4 @@ Después de tocar `prisma/schema.prisma`, siempre generar una migración. Nunca 
 - Cambios chicos y enfocados. No refactorices archivos que no tienen que ver con la tarea.
 - Antes de crear un helper nuevo, buscá si ya existe uno en `lib/`.
 - Cuando toques algo de seguridad o del modelo de datos, explicá el porqué del cambio: son las dos áreas que se revisan línea por línea.
+- Antes de dar un cambio por terminado, ejecutá los sensores del repositorio: `npm run typecheck`, `npm test`, `npm run lint` y `npm run build`. Si alguno falla, no entregues el cambio como terminado.
