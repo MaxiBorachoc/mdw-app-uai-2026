@@ -1,13 +1,17 @@
 "use client";
 
 /**
- * Formulario de H1 (crear proyecto). Es el unico componente "use client" del
- * proyecto hoy: necesita useActionState para mostrar el error de validacion
- * sin perder lo que el usuario ya escribio. Llama a crearProyectoAction
- * (app/actions/proyectos.ts), que valida y crea el proyecto en el servidor.
+ * Formulario de H1 (crear proyecto). Necesita useActionState para mostrar el
+ * error de validacion sin perder lo que el usuario ya escribio. Llama a
+ * crearProyectoAction (app/actions/proyectos.ts), que verifica la sesion,
+ * valida con Zod y crea el proyecto en el servidor: aca no hay ninguna regla.
  */
 import { useActionState } from "react";
 import { crearProyectoAction, type EstadoCrearProyecto } from "@/app/actions/proyectos";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 const estadoInicial: EstadoCrearProyecto = null;
 
@@ -15,47 +19,39 @@ export function FormularioProyecto() {
   const [estado, accion, enCurso] = useActionState(crearProyectoAction, estadoInicial);
 
   return (
-    <form action={accion} className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="nombre" className="text-sm font-medium">
+    <form action={accion} className="flex flex-col gap-4">
+      <div>
+        <label htmlFor="nombre" className="mb-2 block text-sm font-medium">
           Nombre del proyecto
         </label>
-        <input
+        <Input
           id="nombre"
           name="nombre"
           type="text"
           required
+          defaultValue={estado?.nombre}
           aria-invalid={estado ? true : undefined}
           aria-describedby={estado ? "error-crear-proyecto" : undefined}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm"
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="descripcion" className="text-sm font-medium">
-          Descripción
+      <div>
+        <label htmlFor="descripcion" className="mb-2 block text-sm font-medium">
+          Descripción (opcional)
         </label>
-        <textarea
-          id="descripcion"
-          name="descripcion"
-          rows={2}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-        />
+        <Textarea id="descripcion" name="descripcion" rows={2} defaultValue={estado?.descripcion} />
       </div>
 
       {estado && (
-        <p id="error-crear-proyecto" role="alert" className="text-sm text-red-600">
-          {estado.error}
-        </p>
+        <Alert variant="error" id="error-crear-proyecto">
+          <p className="font-semibold">No pudimos crear el proyecto</p>
+          <p className="mt-1">{estado.error}</p>
+        </Alert>
       )}
 
-      <button
-        type="submit"
-        disabled={enCurso}
-        className="self-start rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
+      <Button type="submit" disabled={enCurso} className="self-start">
         {enCurso ? "Creando…" : "Crear proyecto"}
-      </button>
+      </Button>
     </form>
   );
 }

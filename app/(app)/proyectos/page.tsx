@@ -1,5 +1,8 @@
+import { BuscadorProyectos } from "@/components/BuscadorProyectos";
+import { FormularioProyecto } from "@/components/FormularioProyecto";
 import { Navegacion } from "@/components/Navegacion";
-import { TarjetaProyecto } from "@/components/TarjetaProyecto";
+import { SinDatos } from "@/components/SinDatos";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requerirUsuario } from "@/lib/auth";
 import { listarProyectosParaVista } from "@/lib/db/vistas-proyectos";
 
@@ -8,6 +11,14 @@ export const dynamic = "force-dynamic";
 export default async function ProyectosPage() {
   const usuario = await requerirUsuario();
   const proyectos = await listarProyectosParaVista(usuario.id);
+
+  const proyectosParaCliente = proyectos.map((proyecto) => ({
+    id: proyecto.id,
+    nombre: proyecto.nombre,
+    descripcion: proyecto.descripcion,
+    ownerNombre: proyecto.owner.nombre,
+    rol: proyecto.rol,
+  }));
 
   return (
     <>
@@ -21,24 +32,25 @@ export default async function ProyectosPage() {
           </p>
         </div>
 
-        {proyectos.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Todavía no tenés proyectos.</p>
+        <section aria-labelledby="nuevo-proyecto" className="mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle id="nuevo-proyecto">Nuevo proyecto</CardTitle>
+              <CardDescription>Quedás como Dueño del proyecto que crees y podés invitar colaboradores.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FormularioProyecto />
+            </CardContent>
+          </Card>
+        </section>
+
+        {proyectosParaCliente.length === 0 ? (
+          <SinDatos
+            titulo="Todavía no tenés proyectos"
+            descripcion="Creá el primero con el formulario de arriba, o aceptá una invitación para colaborar en uno existente."
+          />
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {proyectos.map((proyecto) => (
-              <li key={proyecto.id}>
-                <TarjetaProyecto
-                  proyecto={{
-                    id: proyecto.id,
-                    nombre: proyecto.nombre,
-                    descripcion: proyecto.descripcion,
-                    ownerNombre: proyecto.owner.nombre,
-                    rol: proyecto.rol,
-                  }}
-                />
-              </li>
-            ))}
-          </ul>
+          <BuscadorProyectos proyectos={proyectosParaCliente} />
         )}
       </main>
     </>
