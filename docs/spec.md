@@ -393,6 +393,23 @@ Criterios de aceptacion:
 
 ## 5. Flujo principal
 
+### Mapa de pantallas
+
+La interfaz sigue el flujo principal y separa las rutas públicas de las que requieren sesión.
+Los permisos se verifican siempre en el servidor; ocultar una acción en la UI no reemplaza la autorización.
+
+| Pantalla | Ruta | Quién la ve | Propósito |
+|---|---|---|---|
+| Login | `/login` | Público | Iniciar sesión con Google. |
+| Mis proyectos | `/proyectos` | Usuario autenticado | Listar únicamente proyectos con membresía aceptada y mostrar el rol en cada uno, y crear un proyecto nuevo (H1): quien lo crea queda como Dueño. |
+| Detalle de proyecto | `/proyectos/[id]` | OWNER, EDITOR o READER aceptado del proyecto | Consultar descripción, propietario, versión abierta y colaboradores aceptados. |
+| Proyecto no encontrado | `/proyectos/[id]` | Usuario autenticado sin acceso o id inexistente | Mostrar el mismo 404 para no revelar si un proyecto ajeno existe. |
+| Sistema visual | `/sistema` | Usuario autenticado | Revisar componentes, foco, contraste y estados sin modificar datos reales. |
+
+La pantalla principal de proyectos contempla cinco estados distintos: **cargando**, **con datos**,
+**vacío**, **sin resultados** y **error**. Vacío significa que la persona no tiene proyectos; sin
+resultados significa que sí tiene proyectos pero el filtro actual no coincide con ninguno.
+
 El recorrido completo, paso a paso, del flujo que da valor al sistema (no un ABM).
 
 1. El dueño crea un proyecto e invita colaboradores con rol editor o lector. Cada invitacion queda pendiente hasta que el destinatario la acepta desde el correo    recibido (ver H2 y seccion 8).

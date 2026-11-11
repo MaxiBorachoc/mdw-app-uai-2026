@@ -9,7 +9,9 @@ import { requerirUsuario } from "@/lib/auth";
 import { crearProyectoSchema } from "@/lib/schemas/proyecto";
 import { crearProyecto } from "@/lib/db/proyectos";
 
-export type EstadoCrearProyecto = { error: string } | null;
+// Si hay error, se devuelven tambien los valores enviados: React vacia el
+// formulario al terminar la accion y asi el usuario no pierde lo que escribio.
+export type EstadoCrearProyecto = { error: string; nombre: string; descripcion: string } | null;
 
 export async function crearProyectoAction(
   _estadoPrevio: EstadoCrearProyecto,
@@ -23,10 +25,14 @@ export async function crearProyectoAction(
   });
 
   if (!resultado.success) {
-    return { error: resultado.error.issues[0]?.message ?? "Datos inválidos" };
+    return {
+      error: resultado.error.issues[0]?.message ?? "Datos inválidos",
+      nombre: String(formData.get("nombre") ?? ""),
+      descripcion: String(formData.get("descripcion") ?? ""),
+    };
   }
 
   await crearProyecto(resultado.data, usuario.id);
-  revalidatePath("/");
+  revalidatePath("/proyectos");
   return null;
 }
