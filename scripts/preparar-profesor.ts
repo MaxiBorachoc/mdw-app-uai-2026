@@ -58,9 +58,16 @@ async function main() {
   });
 
   if (!versionAbierta) {
+    // "orden" numera los builds del proyecto (docs/spec.md, sección 3): el nuevo va al final.
+    const ultimo = await prisma.versionProyecto.findFirst({
+      where: { proyectoId: proyecto.id },
+      orderBy: { orden: "desc" },
+      select: { orden: true },
+    });
     await prisma.versionProyecto.create({
       data: {
         proyectoId: proyecto.id,
+        orden: (ultimo?.orden ?? 0) + 1,
         estado: "EN_DESARROLLO",
       },
     });

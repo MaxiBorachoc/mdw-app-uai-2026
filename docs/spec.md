@@ -29,88 +29,118 @@ desarrollo.
 
 ## 2. Roles
 
-| Rol | Quien es | Que puede hacer que el otro no |
+| Rol | Quién es | Qué puede hacer |
 |---|---|---|
-| **Dueño** | Creador y titular del proyecto | Administrar colaboradores, cambiar roles, editar documentacion, crear versiones de proyecto y eliminar elementos |
-| **Editor** | Integrante del equipo que trabaja sobre la documentacion | Crear y modificar historias, actividades, diagramas y versiones de proyecto |
-| **Lector** | Docente, ayudante o integrante que solo consulta | Ver la documentacion actual, versiones anteriores y versiones de proyecto sin modificar nada |
+| **Dueño** | Creador y titular del proyecto. En la práctica suele ser el PO o el PM | Todo lo que hace un Editor, y además administrar colaboradores y roles, y editar o eliminar el proyecto |
+| **Editor** | Integrante que trabaja sobre la documentación: analista funcional, arquitecto, desarrollador | Crear, modificar y eliminar historias de usuario, actividades y flechas, y cerrar versiones de proyecto |
+| **Lector** | Docente, ayudante o integrante que solo consulta | Ver la documentación actual, el historial de cada elemento y las versiones de proyecto cerradas, sin modificar nada |
 
-Todos los roles tienen cuenta. La diferencia principal esta en los permisos dentro de cada proyecto,
-no necesariamente en el tipo de usuario global. Un proyecto tiene exactamente un dueño: quien lo
-creo. El dueño aparece en la lista de colaboradores del proyecto con rol Dueño (ver seccion 4, H2).
+Todos los roles tienen cuenta. La diferencia está en los permisos dentro de cada proyecto, no en el
+tipo de usuario global. Un proyecto tiene exactamente un dueño: quien lo creó. El dueño aparece en
+la lista de colaboradores del proyecto con rol Dueño (ver sección 4, H2).
 
 ## 3. Entidades
 
-Los sustantivos que aparecen en las historias de usuario. De aca sale el modelo de datos.
+Los sustantivos que aparecen en las historias de usuario. De acá sale el modelo de datos.
 
-| Entidad | Que representa | Se relaciona con |
+### Elementos versionables
+
+Un **elemento versionable** es cualquier pieza de la documentación que el sistema conserva en el
+tiempo: hoy son las **historias de usuario**, las **actividades** y las **flechas** (conexiones entre
+actividades). Más adelante pueden sumarse otros tipos (por ejemplo, diagramas de entidades) con el
+mismo mecanismo.
+
+Cada tipo se guarda en dos tablas:
+
+- **La identidad** (`HistoriaUsuario`, `Actividad`, `ConexionActividad`): solo el `id` y el proyecto.
+  No cambia nunca. Existe para que las referencias entre elementos estén garantizadas por la base
+  (una flecha no puede apuntar a una actividad que no existe).
+- **Las revisiones** (`HistoriaUsuarioVersion`, `ActividadVersion`, `ConexionActividadVersion`): una
+  fila por cada cambio confirmado. Nunca se modifican ni se borran. Toda la información del elemento
+  vive acá.
+
+Toda revisión, sea del tipo que sea, tiene estos campos:
+
+| Campo | Qué guarda |
+|---|---|
+| **Versión del elemento** (`numeroVersion`) | 1 al crearlo; sube de a uno con cada cambio confirmado |
+| **Build** (`versionProyectoId`) | La versión de proyecto que estaba en desarrollo cuando se confirmó el cambio |
+| **Eliminado** | Si esa revisión da de baja al elemento (ver "Eliminar no borra" más abajo) |
+| **Autor** y **fecha** | Quién confirmó el cambio y cuándo. La fecha de creación del elemento es la de su versión 1 |
+
+Y además, los datos propios de cada tipo:
+
+| Revisión | Datos propios |
+|---|---|
+| `HistoriaUsuarioVersion` | Título, descripción y criterios de aceptación |
+| `ActividadVersion` | Nombre, documentación, actividad padre (o ninguna), posición X e Y en el lienzo, e historias de usuario asociadas |
+| `ConexionActividadVersion` | Actividad de origen y actividad de destino |
+
+**Las referencias apuntan al `id` del elemento, no a una versión.** El padre de una actividad, el
+origen y el destino de una flecha y las historias asociadas a una actividad guardan el `id` del
+elemento referido. Qué versión de ese elemento corresponde se resuelve con la regla de
+reconstrucción de un build (sección 6), así que editar un elemento no obliga a crear revisiones de los
+que lo referencian.
+
+### Todas las entidades
+
+| Entidad | Qué representa | Se relaciona con |
 |---|---|---|
-| **Usuario** | Persona con cuenta en el sistema | MiembroProyecto (1-N), Proyecto (N-N a traves de MiembroProyecto), versiones creadas |
-| **Proyecto** | Espacio de trabajo donde vive la documentacion | MiembroProyecto (1-N), HistoriaUsuario (1-N), Actividad (1-N), VersionProyecto (1-N) |
-| **MiembroProyecto** | Relacion entre un usuario y un proyecto: rol asignado y estado de la invitacion (pendiente, aceptada o rechazada) | Usuario (N-1), Proyecto (N-1) |
-| **HistoriaUsuario** | Identidad estable de una historia del proyecto; su titulo es unico dentro del proyecto | Proyecto (N-1), HistoriaUsuarioVersion (1-N), version actual |
-| **HistoriaUsuarioVersion** | Revision inmutable de una historia de usuario; marca si esa revision la deja eliminada | HistoriaUsuario (N-1), Usuario creador (N-1), VersionProyectoItem (1-N) |
-| **Actividad** | Nodo estable del diagrama de actividades; puede tener una actividad padre | Proyecto (N-1), Actividad padre (N-1 opcional), ActividadVersion (1-N), conexiones |
-| **ActividadVersion** | Revision inmutable de la documentacion de una actividad; marca si esa revision la deja eliminada | Actividad (N-1), Usuario creador (N-1), VersionProyectoItem (1-N) |
-| **ConexionActividad** | Flecha entre dos actividades del mismo diagrama | Actividad origen (N-1), Actividad destino (N-1), Proyecto (N-1) |
-| **VersionProyecto** | Hito con nombre del proyecto (antes "Checkpoint"); tiene estado `en_desarrollo` (sin numero, es donde se edita, como maximo una por proyecto) o `cerrada` (identificada por `Version.Build.Patch`, captura el estado completo de la documentacion en ese momento); sin autor (ver nota mas abajo) | Proyecto (N-1), VersionProyectoItem (1-N si esta cerrada) |
-| **VersionProyectoItem** | Referencia a la version exacta de una historia o actividad incluida en una version de proyecto cerrada | VersionProyecto (N-1), HistoriaUsuarioVersion o ActividadVersion |
+| **Usuario** | Persona con cuenta en el sistema | MiembroProyecto (1-N), Proyecto (N-N a través de MiembroProyecto), revisiones que escribió |
+| **Proyecto** | Espacio de trabajo donde vive la documentación | MiembroProyecto (1-N), elementos versionables (1-N), VersionProyecto (1-N) |
+| **MiembroProyecto** | Relación entre un usuario y un proyecto: rol asignado y estado de la invitación (pendiente, aceptada o rechazada) | Usuario (N-1), Proyecto (N-1) |
+| **HistoriaUsuario** / **HistoriaUsuarioVersion** | Identidad y revisiones de una historia de usuario. El título es único dentro del proyecto | Proyecto (N-1), actividades que la referencian |
+| **Actividad** / **ActividadVersion** | Identidad y revisiones de una actividad. Una actividad **sin padre** es un **diagrama**; las que tienen padre son los nodos de su diagrama interno | Proyecto (N-1), actividad padre (N-1 opcional), historias asociadas (N-N), flechas |
+| **ConexionActividad** / **ConexionActividadVersion** | Identidad y revisiones de una flecha entre dos actividades del mismo diagrama | Actividad origen (N-1), actividad destino (N-1), Proyecto (N-1) |
+| **VersionProyecto** | Un **build** del proyecto. Está `en_desarrollo` (sin número, es donde se trabaja; siempre hay exactamente una por proyecto) o `cerrada` (identificada por `Version.Build.Patch`). Tiene un número de orden correlativo dentro del proyecto (1, 2, 3...) que ordena los builds. No tiene autor | Proyecto (N-1), revisiones confirmadas durante ese build (1-N) |
 
-**Relacion N-N:** un usuario participa en muchos proyectos y un proyecto tiene muchos usuarios, a
-traves de `MiembroProyecto`.
+**Relaciones N-N:** un usuario participa en muchos proyectos y un proyecto tiene muchos usuarios, a
+través de `MiembroProyecto`. Una actividad puede asociarse a varias historias y una historia tener
+varias actividades asociadas; la asociación se guarda en cada revisión de la actividad.
 
-**Versionado:** `HistoriaUsuario` y `Actividad` no se pisan. La entidad base conserva la identidad
-del elemento y apunta a su version actual. Cada cambio crea una fila nueva en
-`HistoriaUsuarioVersion` o `ActividadVersion`.
+**Diagramas:** un diagrama es una actividad sin padre. Sus actividades hijas son los nodos de su
+lienzo, y las flechas unen hijas del mismo padre. Una actividad hija puede tener a su vez hijas: ese es
+su diagrama interno (diagramas anidados). Un proyecto puede tener todos los diagramas que el equipo
+necesite.
 
-**Diagramas:** el diagrama se modela como nodos (`Actividad`) y flechas (`ConexionActividad`). Las
-actividades anteriores y posteriores no se guardan como texto dentro de la actividad.
+**Asociación con historias de usuario:** se define desde la actividad (cualquier actividad, de
+cualquier nivel), no desde la historia. La historia muestra la lista de actividades asociadas,
+calculada a partir de las actividades que la referencian en el build que se está mirando.
 
-**`HistoriaUsuarioVersion` no tiene `prioridad` ni `estado`.** Se habian propuesto como campos, pero
-el equipo decidio que no aportan valor al MVP; se pueden reincorporar en una version futura si hace
-falta. Solo `ActividadVersion` tiene `estado` (valores: `pendiente`, `en_progreso`, `completada`).
+**Eliminar no borra.** Eliminar una historia, una actividad o una flecha crea una revisión nueva
+marcada **eliminado**. Desde ese build el elemento deja de aparecer; los builds anteriores lo siguen
+mostrando tal como estaba, porque su revisión vigente en ellos no está marcada como eliminada.
 
-**Eliminar una historia o una actividad no la borra de la base.** Crea una nueva version marcada
-`eliminado` y la deja como version actual (es el mismo mecanismo de "cada cambio crea una fila
-nueva", aplicado a un caso particular). Un elemento con `eliminado` en su version actual no aparece
-en la version en desarrollo ni en ninguna version de proyecto que se cierre a partir de ese momento;
-las versiones de proyecto cerradas *antes* de eliminarlo lo siguen mostrando tal como estaba, porque
-la version que quedo congelada en ellas (`VersionProyectoItem`) no tiene `eliminado`. Solo el dueño
-puede eliminar una historia o una actividad (ver seccion 2). Las conexiones no se versionan:
-eliminarlas las borra de la base (ver seccion 6), consistente con que su estado en un momento
-anterior ya no se conserva en las versiones de proyecto cerradas (deuda tecnica, ver seccion 6).
+**`VersionProyecto` no tiene un "autor".** Un build documenta el estado del proyecto en un momento, no
+algo que una persona firma; por eso no se le atribuye autoría como a una revisión. Quién la cerró no
+se muestra ni se comunica por mail.
 
-**`VersionProyecto` no tiene un "autor".** Una version de proyecto documenta el estado del proyecto
-en un momento, no algo que una persona firma; por eso no se le atribuye autoria como a una
-`HistoriaUsuarioVersion` o `ActividadVersion`. Quien la cerro no se muestra ni se comunica por mail.
+**Longitudes máximas.** Según estándares comunes:
 
-**Longitudes maximas.** Segun estandares comunes:
-
-| Campo | Longitud maxima |
+| Campo | Longitud máxima |
 |---|---|
 | Nombre de proyecto | 100 caracteres |
-| Descripcion de proyecto | 500 caracteres |
-| Titulo de historia | 150 caracteres |
-| Descripcion de historia | 2000 caracteres |
-| Cada criterio de aceptacion | 300 caracteres |
+| Descripción de proyecto | 500 caracteres |
+| Título de historia | 150 caracteres |
+| Descripción de historia | 2000 caracteres |
+| Cada criterio de aceptación | 300 caracteres |
 | Nombre de actividad | 100 caracteres |
-| Documentacion de actividad | 5000 caracteres |
-| Nombre de version de proyecto | 100 caracteres |
-| Descripcion de version de proyecto | 1000 caracteres |
+| Documentación de actividad | 5000 caracteres |
+| Nombre de versión de proyecto | 100 caracteres |
+| Descripción de versión de proyecto | 1000 caracteres |
 
-**Reglas de borrado.** Que pasa en cada relacion cuando se borra el lado "padre":
+**Reglas de borrado en la base.** El producto nunca borra elementos versionables (los marca como
+eliminados). Estas reglas aplican cuando se borra un registro de la base:
 
 | Si se borra... | Pasa con... | Regla |
 |---|---|---|
-| Usuario (no dueño de ningun proyecto) | sus `MiembroProyecto` | se borran en cascada |
-| Usuario que es dueño de algun proyecto | ese `Proyecto` | **no se permite** borrar el usuario mientras siga siendo dueño de un proyecto (hay que eliminar esos proyectos antes; no existe una funcionalidad para transferir la titularidad de un proyecto a otro usuario — ver seccion 9) |
-| Usuario que escribio versiones (`autorId` en `HistoriaUsuarioVersion` o `ActividadVersion`) | esas versiones | **no se permite**: una version ya creada conserva su autor, no se puede borrar un usuario que firmo historial. Si el usuario deja de ser colaborador del proyecto (lo quitan, o usa "No colaborar"), sus versiones anteriores lo siguen mostrando como autor igual |
-| Proyecto | sus `MiembroProyecto`, `HistoriaUsuario` (y sus versiones), `Actividad` (y sus versiones), `ConexionActividad`, `VersionProyecto` (incluidas las **cerradas**) | se borra todo en cascada, sin excepcion: borrar un proyecto borra tambien su historial de versiones cerradas, no hay forma de conservarlo aparte. Por eso, cuando se implemente el borrado de proyecto, la UI debe advertir explicitamente que se pierde todo (incluido el historial) y pedir una segunda confirmacion antes de ejecutar la accion. |
-| HistoriaUsuario / Actividad | sus versiones (`HistoriaUsuarioVersion` / `ActividadVersion`) | se borran en cascada (esto es borrado a nivel de base; el producto elimina una historia o actividad marcandola `eliminado`, no borrandola — ver mas arriba) |
-| Actividad padre | sus actividades hijas (diagramas anidados) | se borran en cascada |
-| Actividad (origen o destino de una conexion) | esa `ConexionActividad` | se borra en cascada (borrar una actividad borra las flechas que la tocan; lo inverso no aplica, ver seccion 6) |
-| HistoriaUsuarioVersion o ActividadVersion ya referenciada en una `VersionProyecto` cerrada (`VersionProyectoItem`) | esa referencia | a nivel de base, **no se permite** borrarla: garantiza que una version cerrada nunca quede con una referencia rota. En la practica el producto nunca ejecuta ese borrado — "eliminar" una historia o actividad no borra sus versiones anteriores, crea una version nueva marcada `eliminado` (ver mas arriba) |
-| VersionProyecto | sus `VersionProyectoItem` | se borran en cascada |
+| Usuario (no dueño de ningún proyecto) | sus `MiembroProyecto` | se borran en cascada |
+| Usuario que es dueño de algún proyecto | ese `Proyecto` | **no se permite** borrar el usuario mientras siga siendo dueño de un proyecto (no existe una funcionalidad para transferir la titularidad, ver sección 9) |
+| Usuario que escribió revisiones | esas revisiones | **no se permite**: una revisión conserva su autor. Si el usuario deja de ser colaborador, sus revisiones lo siguen mostrando como autor |
+| Proyecto | sus colaboradores, sus elementos versionables con todas sus revisiones y sus `VersionProyecto` (incluidas las **cerradas**) | se borra todo en cascada, sin excepción. Por eso la UI advierte que se pierde todo (incluido el historial) y pide una segunda confirmación |
+| Identidad de un elemento | sus revisiones | se borran en cascada (solo ocurre al borrar el proyecto) |
+| Actividad referenciada como padre, origen o destino, o historia referenciada desde una actividad | la revisión que la referencia | **no se permite**: una revisión nunca queda con una referencia rota |
+| `VersionProyecto` con revisiones confirmadas en ese build | esas revisiones | **no se permite** |
 
 ## 4. Historias de usuario
 
@@ -219,177 +249,209 @@ Criterios de aceptacion:
 > invitaciones repetidas (cuantas veces o cada cuanto se puede re-invitar al mismo usuario), y avisarle
 > al dueño cuando un usuario rechaza su invitacion (hoy no se le avisa).
 
+> **Cómo se guarda cualquier cambio de H3 a H11:** las ediciones se acumulan en un **borrador** y
+> recién se registran al tocar **"Confirmar cambios"** (ver H12). Cuando un criterio dice "se crea",
+> "se guarda" o "se elimina", quiere decir: al confirmar.
+
 ### H3 - Registrar una historia de usuario
 
-**Como** editor, **quiero** cargar historias de usuario, **para** documentar que necesita el sistema
-y con que criterios se valida.
+**Como** dueño o editor, **quiero** cargar historias de usuario, **para** documentar qué necesita el
+sistema y con qué criterios se valida.
 
-Criterios de aceptacion:
-- [ ] Cuando el editor carga titulo, descripcion y criterios de aceptacion, entonces se crea la
-      historia y se genera automaticamente su version 1.
-- [ ] Dado que la historia fue creada, cuando se abre su detalle, entonces se muestran sus datos
-      actuales y su historial de versiones.
-- [ ] Caso de error: si falta titulo o descripcion, no se guarda y se muestran los campos a corregir.
-- [ ] Caso de error: si no se carga al menos un criterio de aceptacion, no se guarda.
-- [ ] Caso de error: si el titulo ya existe en otra historia del mismo proyecto (sin distinguir
-      mayusculas/minusculas ni espacios al borde, pero sin ignorar acentos ni espacios internos: esos
-      si hacen que dos titulos se consideren distintos), no se guarda y se muestra el motivo. El
-      titulo identifica la historia para el equipo, asi que debe ser unico dentro del proyecto.
-- [ ] Caso de error: si el titulo, la descripcion o algun criterio de aceptacion superan la longitud
-      maxima (ver seccion 3), no se guarda y se muestra el motivo.
+Criterios de aceptación:
+- [ ] Desde la barra lateral (ver H11), en la sección "Historias de usuario", el usuario elige "Nueva
+      historia" y carga título, descripción y criterios de aceptación (uno o más).
+- [ ] Al confirmar, la historia queda creada con su versión 1, registrada en el build en desarrollo.
+- [ ] Caso de error: si falta título o descripción, no se puede confirmar y se marcan los campos a
+      corregir.
+- [ ] Caso de error: si no hay al menos un criterio de aceptación, no se puede confirmar.
+- [ ] Caso de error: si el título ya existe en otra historia vigente del mismo proyecto (sin distinguir
+      mayúsculas/minúsculas ni espacios al borde, pero sin ignorar acentos ni espacios internos), no
+      se guarda y se muestra el motivo. El título identifica la historia para el equipo.
+- [ ] Caso de error: si el título, la descripción o algún criterio superan la longitud máxima (ver
+      sección 3), no se guarda y se muestra el motivo.
 
-> **Eliminar una historia:** ver la regla general en la seccion 3 ("Eliminar una historia o una
-> actividad no la borra de la base") y quien puede hacerlo en la seccion 2.
+### H4 - Editar, consultar y eliminar una historia sin perder versiones anteriores
 
-### H4 - Editar una historia sin perder versiones anteriores
+**Como** dueño o editor, **quiero** modificar o eliminar una historia de usuario, **para** mantener
+la documentación al día sin perder cómo estaba antes.
 
-**Como** editor, **quiero** modificar una historia de usuario, **para** mantener la documentacion
-actualizada sin perder como estaba antes.
-
-Criterios de aceptacion:
-- [ ] Cuando el editor guarda cambios en una historia, entonces el sistema crea una nueva version y
-      la marca como version actual.
-- [ ] Dado que una historia tiene varias versiones, cuando se consulta el historial, entonces se ve
-      el numero de version, fecha, autor y contenido de cada revision.
-- [ ] Dado que se abre una version anterior, entonces el sistema la muestra en modo lectura y no
-      modifica la version actual.
-- [ ] Caso de error: si el nuevo titulo ya existe en otra historia del mismo proyecto (misma regla
-      que en H3), no se guarda y se muestra el motivo.
-- [ ] Caso de error: si se guarda sin haber cambiado ningun campo, no se crea una version nueva y el
-      sistema avisa que no hay cambios.
-- [ ] Caso de error: si el titulo, la descripcion o algun criterio de aceptacion superan la longitud
-      maxima (ver seccion 3), no se guarda y se muestra el motivo.
-
-### H5 - Crear y editar un diagrama de actividades
-
-**Como** editor, **quiero** armar un diagrama visual con actividades conectadas por flechas,
-**para** representar el flujo funcional de una historia o proceso del proyecto.
-
-Criterios de aceptacion:
-- [ ] Cuando el editor crea una actividad en el diagrama, entonces aparece como un nodo visual con
-      nombre y queda asociada al proyecto.
-- [ ] Cuando el editor conecta dos actividades, entonces se crea una conexion origen-destino y se ve
-      una flecha entre ambos nodos.
-- [ ] Cuando el editor mueve una actividad, entonces se guarda su posicion y al volver al diagrama
-      se muestra en el mismo lugar.
-- [ ] Caso de error: si se intenta conectar una actividad con otra de un proyecto distinto, el
-      sistema rechaza la accion.
-- [ ] Caso de error: si se intenta conectar dos actividades de distinto nivel de diagrama (una es
-      hija de una actividad padre y la otra no, o son hijas de padres distintos), el sistema rechaza
-      la accion (ver seccion 6).
-- [ ] Caso de error: si ya existe una conexion con el mismo origen y el mismo destino, no se crea de
-      nuevo.
-- [ ] Caso de error: si el nombre de la actividad supera la longitud maxima (ver seccion 3), no se
-      guarda y se muestra el motivo.
-
-> **Propuesta (a confirmar):** para los siguientes dos casos no habia una regla escrita y no surgen
-> directamente de una historia, asi que van como propuesta en vez de como decision tomada:
-> - **Conectar una actividad consigo misma:** se rechaza (una flecha necesita dos nodos distintos).
-> - **Ciclos, o conexiones en ambos sentidos entre el mismo par** (A→B y tambien B→A): se permiten,
->   porque un flujo real puede volver a un paso anterior; tecnicamente no chocan entre si porque
->   tienen distinto origen/destino cada una.
-
-### H6 - Documentar y versionar una actividad
-
-**Como** editor, **quiero** editar la documentacion de una actividad, **para** explicar que ocurre
-en ese paso del flujo y conservar su historial.
-
-Criterios de aceptacion:
-- [ ] Cuando el editor crea una actividad, entonces se genera su version 1 con nombre,
-      documentacion y estado.
-- [ ] Cuando el editor cambia el nombre, documentacion o estado de una actividad, entonces se crea
-      una nueva version y la anterior queda disponible en el historial.
-- [ ] Dado que una actividad tiene versiones anteriores, cuando se abre una version, entonces se
-      muestra en modo lectura con fecha y autor.
-- [ ] Caso de error: si se guarda sin haber cambiado ningun campo, no se crea una version nueva y el
-      sistema avisa que no hay cambios.
-- [ ] Caso de error: si el nombre o la documentacion superan la longitud maxima (ver seccion 3), no
+Criterios de aceptación:
+- [ ] Cuando se confirma un cambio en una historia, el sistema crea una revisión nueva (versión del
+      elemento + 1) en el build en desarrollo.
+- [ ] El detalle de la historia muestra sus datos y su **historial**: versión del elemento, build,
+      fecha, autor y contenido de cada revisión. Abrir una revisión anterior la muestra en modo
+      lectura, sin modificar la actual.
+- [ ] El detalle de la historia muestra la **lista de actividades asociadas**: las actividades que la
+      referencian en el build que se está mirando (ver H6). Desde la lista se puede ir a cada una.
+- [ ] Cuando el usuario elimina una historia, el sistema le pide confirmación. Al confirmar, se crea
+      una revisión marcada eliminado: desde ese build la historia no aparece y las actividades que la
+      tenían asociada dejan de mostrarla.
+- [ ] Caso de error: si el nuevo título ya existe en otra historia vigente (misma regla que en H3), no
       se guarda y se muestra el motivo.
+- [ ] Caso de error: si los datos quedan iguales a la revisión vigente, no se crea una revisión nueva.
+- [ ] Caso de error: si algún campo supera la longitud máxima, no se guarda y se muestra el motivo.
 
-> **Eliminar una actividad:** ver la regla general en la seccion 3 y quien puede hacerlo en la
-> seccion 2.
+### H5 - Crear diagramas de actividades
 
-### H7 - Navegar diagramas anidados
+**Como** dueño o editor, **quiero** crear todos los diagramas que necesite el proyecto, **para**
+representar cada proceso funcional por separado.
 
-**Como** editor, **quiero** abrir el detalle interno de una actividad, **para** descomponer una
-actividad grande en subactividades mas especificas.
+Criterios de aceptación:
+- [ ] Desde la barra lateral, en la sección "Diagramas", el usuario elige "Nuevo diagrama" y carga un
+      nombre. El diagrama es una actividad sin padre: tiene nombre, documentación e historias
+      asociadas como cualquier actividad (ver H6), pero no tiene posición porque no se dibuja en ningún
+      lienzo.
+- [ ] Un proyecto puede tener cualquier cantidad de diagramas. La barra lateral los lista a todos.
+- [ ] Al abrir un diagrama se ve su lienzo, con las actividades hijas y las flechas entre ellas.
+- [ ] Caso de error: si el nombre está vacío o supera la longitud máxima, no se guarda y se muestra el
+      motivo.
 
-Criterios de aceptacion:
-- [ ] Cuando el usuario hace doble clic sobre una actividad, entonces se abre su diagrama interno.
-- [ ] Dado que se esta dentro de un diagrama interno, cuando el usuario crea una actividad, entonces
-      queda asociada como hija de la actividad padre.
-- [ ] Dado que el usuario esta en un subdiagrama, cuando vuelve atras, entonces regresa al diagrama
-      padre conservando el contexto.
+### H6 - Crear, documentar, mover y eliminar actividades
 
-> **Propuesta (a confirmar):** dos casos que no surgen directamente de una historia:
-> - **Mover una actividad a otro padre:** se permite, siempre que el nuevo padre sea del mismo
->   proyecto y no sea la propia actividad ni una de sus descendientes (evita un ciclo en la
->   jerarquia). Si la actividad tiene conexiones activas, hay que quitarlas antes de moverla, porque
->   al cambiar de nivel dejarian de cumplir la regla de "mismo nivel de diagrama" (ver H5). Este
->   detalle puede necesitar mas precision cuando se construya H7.
-> - **Profundidad maxima de anidamiento:** sin limite tecnico; queda a criterio del equipo mantener
->   el diagrama legible.
+**Como** dueño o editor, **quiero** armar el contenido de un diagrama con actividades, **para**
+describir los pasos de un proceso y conservar cómo estaba en cada build.
 
-### H8 - Cerrar la version en desarrollo y numerarla
+Criterios de aceptación:
+- [ ] Dentro del lienzo de un diagrama, el usuario crea una actividad: aparece como un nodo con su
+      nombre y queda como hija del diagrama abierto.
+- [ ] El usuario edita el nombre y la documentación de una actividad.
+- [ ] El usuario asocia una actividad (de cualquier nivel, incluido un diagrama) a una o más historias
+      de usuario vigentes del proyecto, y puede quitar asociaciones.
+- [ ] El usuario mueve una actividad dentro del lienzo arrastrándola, o con el teclado. Al confirmar,
+      la posición final queda guardada en una revisión nueva: al volver al diagrama, y al mirar ese
+      build más adelante, la actividad está en el mismo lugar. Arrastrarla varias veces antes de
+      confirmar genera una sola revisión.
+- [ ] Cada cambio confirmado (nombre, documentación, posición, padre o historias asociadas) crea una
+      revisión nueva de la actividad, con el mismo historial que una historia (ver H4).
+- [ ] Cuando el usuario elimina una actividad, el sistema le avisa que también se eliminan sus
+      actividades internas (y las internas de esas, en todos los niveles) y las flechas que tocan a
+      cualquiera de ellas, y le pide confirmación. Al confirmar, todas quedan marcadas eliminado en el
+      build en desarrollo.
+- [ ] Caso de error: si el nombre está vacío o el nombre o la documentación superan la longitud
+      máxima, no se guarda y se muestra el motivo.
+- [ ] Caso de error: si los datos quedan iguales a la revisión vigente, no se crea una revisión nueva.
 
-**Como** dueño o editor, **quiero** cerrar la version en desarrollo asignandole `Version.Build.Patch`,
-**para** guardar el estado completo de la documentacion en un hito importante.
+### H7 - Navegar diagramas anidados y mover actividades de padre
 
-> Renombrada desde "Crear un checkpoint" (ver nota de terminologia en la seccion 1). Ya no se "crea"
-> una version desde cero: el proyecto siempre tiene una version `en_desarrollo` abierta (se crea junto
-> con el proyecto), y lo que hace quien cierra es **cerrarla**.
+**Como** dueño o editor, **quiero** abrir el diagrama interno de una actividad, **para** descomponer
+una actividad grande en subactividades.
 
-Criterios de aceptacion:
-- [ ] El selector de version (arriba a la derecha, ver H9) siempre muestra una entrada "En desarrollo".
-      Cuando se hace clic en ella, se abre el formulario para cerrarla.
-- [ ] Cuando se abre el formulario de cierre, entonces el sistema pre-carga un `Version.Build.Patch`
-      sugerido (mismo Version y Build que la ultima version cerrada del proyecto, con Patch+1; o
-      `0.0.1` si todavia no se cerro ninguna), editable antes de confirmar.
-- [ ] Cuando se confirma `Version`, `Build`, `Patch` y opcionalmente nombre y descripcion, entonces:
-      (a) la version en desarrollo pasa a estado `cerrada` con esos datos y guarda una referencia a la
-      version actual de cada historia y actividad del proyecto (en todos los niveles de diagramas
-      anidados); y (b) el sistema abre automaticamente una nueva version `en_desarrollo` para que el
-      equipo siga trabajando.
-- [ ] Todo lo que se creo o edito mientras una version estaba en desarrollo queda referenciado por
-      ella al cerrarla, aunque se lo siga editando despues bajo la version nueva (cada version cerrada
-      es una foto completa e inmutable del proyecto en ese instante, no un diff).
-- [ ] Caso de error: `Version`, `Build` y `Patch` deben ser numeros enteros no negativos. La
-      combinacion `0.0.0` no es valida (si `Version` y `Build` son 0, `Patch` debe ser mayor a 0).
-- [ ] Caso de error: no puede existir mas de una version cerrada del mismo proyecto con la misma
-      combinacion exacta de `Version.Build.Patch`.
-- [ ] Caso de error: la version a cerrar debe quedar por encima de la ultima version cerrada del
-      proyecto, comparando en orden `Version`, luego `Build`, luego `Patch` (por ejemplo, `1.2.9` es
-      anterior a `1.3.0`, y `2.9.5` es posterior a ambas pero anterior a `3.1.3`). Se puede saltear
-      numeros (ir del build 2 al 5 sin pasar por el 3 o el 4), pero no retroceder.
-- [ ] Caso de error: si la version en desarrollo no tiene cambios (no se creo, edito ni elimino
-      ninguna historia o actividad desde que se abrio), no se puede cerrar; el sistema avisa que no
-      hay cambios. Esto evita, entre otras cosas, que dos cierres simultaneos dejen una version cerrada
-      vacia: el segundo encuentra la version recien abierta por el primero, sin cambios, y no puede
-      cerrarla.
+Criterios de aceptación:
+- [ ] Cuando el usuario hace doble clic sobre una actividad (o la selecciona y presiona `Enter`), se
+      abre su diagrama interno.
+- [ ] Dentro del diagrama interno, las actividades que se crean quedan como hijas de esa actividad.
+- [ ] Una ruta de navegación ("migas de pan") muestra en qué nivel está el usuario y le permite volver
+      a cualquier nivel superior conservando el contexto.
+- [ ] El usuario puede mover una actividad a otro padre: a cualquier otra actividad del mismo proyecto,
+      o a ninguna (pasa a ser un diagrama). No hay límite de profundidad.
+- [ ] Si la actividad que se mueve tiene flechas, el sistema avisa que se van a quitar (una flecha solo
+      une actividades del mismo diagrama) y las elimina en el mismo cambio.
+- [ ] Caso de error: no se puede mover una actividad a sí misma ni a una de sus actividades internas
+      (en cualquier nivel): crearía una contención circular.
 
-### H9 - Consultar una version de proyecto cerrada
+### H8 - Cerrar la versión en desarrollo y numerarla
 
-**Como** lector, **quiero** consultar una version de proyecto anterior, **para** ver como estaba
-documentado el proyecto en una entrega o hito especifico.
+**Como** dueño o editor, **quiero** cerrar la versión en desarrollo asignándole `Version.Build.Patch`,
+**para** dejar registrado el estado completo de la documentación en un hito.
 
-> Renombrada desde "Consultar un checkpoint" (ver nota de terminologia en la seccion 1).
+Criterios de aceptación:
+- [ ] El selector de versión (arriba a la derecha, ver H9) siempre muestra una entrada "En desarrollo"
+      y la opción de cerrarla.
+- [ ] El formulario de cierre propone un `Version.Build.Patch` (mismo Version y Build que la última
+      versión cerrada, con Patch + 1; o `0.0.1` si no se cerró ninguna), editable antes de confirmar,
+      y un nombre y una descripción opcionales.
+- [ ] Al confirmar, el build en desarrollo pasa a `cerrada` con esos datos y el sistema abre
+      automáticamente el build en desarrollo siguiente. No se copia ninguna documentación: el estado
+      del build cerrado queda definido por las revisiones confirmadas hasta ese momento (ver la regla
+      de reconstrucción en la sección 6).
+- [ ] Si el usuario tiene cambios sin confirmar, el sistema le pide confirmarlos o descartarlos antes
+      de cerrar la versión.
+- [ ] Caso de error: `Version`, `Build` y `Patch` deben ser enteros no negativos; `0.0.0` no es válida.
+- [ ] Caso de error: no puede haber dos versiones cerradas del mismo proyecto con la misma combinación.
+- [ ] Caso de error: la versión a cerrar debe quedar por encima de la última cerrada (orden `Version`,
+      luego `Build`, luego `Patch`). Se pueden saltear números, pero no retroceder.
+- [ ] Caso de error: si en el build en desarrollo no se confirmó ningún cambio (crear, modificar,
+      mover, conectar o eliminar cualquier elemento), no se puede cerrar y el sistema avisa que no hay
+      cambios.
 
-Criterios de aceptacion:
-- [ ] Dado que existe una version cerrada, cuando el usuario la abre, entonces ve su
-      `Version.Build.Patch`, nombre (si tiene), descripcion, fecha de cierre y el listado de
-      historias y actividades incluidas con su contenido exacto (una version de proyecto no tiene
-      autor propio, ver seccion 3).
-- [ ] El proyecto tiene un selector de version visible en toda la pantalla (arriba a la derecha): por
-      defecto muestra "En desarrollo" (la version donde se esta editando ahora); al elegir una version
-      cerrada del listado, la etiqueta pasa a mostrar su `Version.Build.Patch`.
-- [ ] Cuando el usuario elige una version cerrada desde el selector, entonces toda la pantalla pasa a
-      modo **solo lectura** mostrando la documentacion tal como estaba en esa version; para volver a
-      editar, el usuario usa el boton "Volver a la version actual".
-- [ ] Dado que el usuario no pertenece al proyecto, cuando intenta abrir una version, entonces el
-      sistema rechaza el acceso.
+### H9 - Consultar una versión de proyecto cerrada
 
-> **Fuera de alcance por ahora:** editar documentacion estando parado en una version cerrada (no solo
-> consultarla). Ver seccion 9.
+**Como** cualquier colaborador, **quiero** ver el proyecto tal como estaba en una versión cerrada,
+**para** saber qué se entregó en un hito.
+
+Criterios de aceptación:
+- [ ] El proyecto tiene un selector de versión arriba a la derecha. Por defecto muestra "En
+      desarrollo"; al elegir una versión cerrada, la etiqueta muestra su `Version.Build.Patch`.
+- [ ] Al elegir una versión cerrada, toda la pantalla pasa a **solo lectura** y muestra la
+      documentación exactamente como estaba al cerrarla: las historias con su contenido, los diagramas
+      con sus actividades **en las mismas posiciones**, la misma jerarquía de diagramas anidados, las
+      mismas flechas y las mismas asociaciones con historias.
+- [ ] Se ve el número, el nombre, la descripción y la fecha de cierre de la versión.
+- [ ] Un botón "Volver a la versión actual" regresa al build en desarrollo.
+- [ ] Caso de error: si el usuario no pertenece al proyecto, el sistema rechaza el acceso.
+
+### H10 - Conectar actividades con flechas
+
+**Como** dueño o editor, **quiero** unir actividades con flechas, **para** representar el orden y las
+repeticiones de un proceso.
+
+Criterios de aceptación:
+- [ ] Dentro de un lienzo, el usuario crea una flecha eligiendo una actividad de origen y una de
+      destino. La flecha se dibuja sola, de borde a borde de los nodos.
+- [ ] Se permite una flecha de una actividad hacia sí misma, y se permiten ciclos (A → B → A), para
+      modelar procesos repetitivos.
+- [ ] El usuario elimina una flecha sin eliminar las actividades que une.
+- [ ] Las flechas se versionan como cualquier elemento: al mirar un build cerrado se ven las flechas
+      que existían en ese momento.
+- [ ] Caso de error: si ya existe una flecha con el mismo origen y destino, no se crea otra; el
+      sistema resalta la existente.
+- [ ] Caso de error: no se puede unir actividades de distinto diagrama (de distinto padre) ni de otro
+      proyecto. Los diagramas (actividades sin padre) no se conectan con flechas.
+
+### H11 - Navegar los elementos del proyecto desde una barra lateral
+
+**Como** colaborador, **quiero** ver todos los elementos del proyecto en un solo lugar, **para**
+llegar rápido a lo que necesito.
+
+Criterios de aceptación:
+- [ ] La pantalla del proyecto tiene una barra lateral a la izquierda con una sección por tipo de
+      elemento versionable: "Historias de usuario" y "Diagramas".
+- [ ] La sección "Diagramas" muestra un árbol: cada diagrama con sus actividades, y cada actividad con
+      sus actividades internas, en todos los niveles.
+- [ ] Seleccionar un elemento en la barra abre su detalle en el panel principal.
+- [ ] La barra respeta el build que se está mirando: en una versión cerrada muestra los elementos de
+      ese momento.
+- [ ] En pantallas angostas (375 px), la barra se muestra arriba del contenido.
+
+### H12 - Confirmar cambios y trabajar en simultáneo
+
+**Como** dueño o editor, **quiero** confirmar mis cambios de una sola vez y enterarme de lo que
+hicieron los demás, **para** no generar versiones por cada gesto ni pisar el trabajo de otro.
+
+Criterios de aceptación:
+- [ ] Las ediciones (crear, modificar, mover, conectar, asociar o eliminar) se acumulan en un borrador
+      que vive en el navegador y no tocan la base.
+- [ ] El botón **"Confirmar cambios"** está siempre visible. Está gris y deshabilitado si no hay
+      cambios, y toma el color de acción cuando hay cambios pendientes. No muestra la cantidad.
+- [ ] Un botón "Descartar cambios" vuelve al estado confirmado. Si el usuario intenta salir con cambios
+      sin confirmar, el sistema le avisa.
+- [ ] Al confirmar, se crea **una revisión por elemento modificado** (no una por gesto), todas en una
+      sola operación: o se guardan todas, o ninguna.
+- [ ] Si otro usuario confirma cambios, quien **no** tiene borrador ve la pantalla actualizada sola.
+- [ ] Si otro usuario confirma cambios y el usuario **sí** tiene borrador, su pantalla no se recarga.
+      Aparece un botón en la cabecera, junto al selector de versión, que abre una ventana con los
+      cambios agrupados por usuario, por ejemplo: "Cambios realizados por Juan: Se modificó Actividad
+      Facturación". Un cambio en una flecha se informa como un cambio en la actividad cuyo diagrama la
+      contiene.
+- [ ] Si otro usuario confirmó cambios sobre un elemento que el usuario actual tiene modificado en su
+      borrador, el botón "Confirmar cambios" se pone **amarillo**: avisa que la confirmación va a ser
+      rechazada.
+- [ ] Caso de error: al confirmar, si otro usuario ya confirmó una revisión más nueva de algún elemento
+      del borrador, o eliminó un elemento al que el borrador hace referencia, el sistema rechaza toda la
+      confirmación, dice qué elementos tienen conflicto y ofrece recargarlos. No hay fusión automática.
+
+> **Lector:** ve la misma pantalla en modo lectura, sin borrador ni botones de edición.
 
 ## 5. Flujo principal
 
@@ -402,7 +464,8 @@ Los permisos se verifican siempre en el servidor; ocultar una acción en la UI n
 |---|---|---|---|
 | Login | `/login` | Público | Iniciar sesión con Google. |
 | Mis proyectos | `/proyectos` | Usuario autenticado | Listar únicamente proyectos con membresía aceptada y mostrar el rol en cada uno, y crear un proyecto nuevo (H1): quien lo crea queda como Dueño. |
-| Detalle de proyecto | `/proyectos/[id]` | OWNER, EDITOR o READER aceptado del proyecto | Consultar descripción, propietario, versión abierta y colaboradores aceptados. |
+| Espacio del proyecto | `/proyectos/[id]` | Dueño, Editor o Lector aceptado del proyecto | Barra lateral con historias y diagramas (H11), panel con el elemento elegido (H3 a H7, H10), selector de versión y cierre (H8, H9), y "Confirmar cambios" (H12). Dueño y Editor editan; el Lector solo consulta. |
+| Versión cerrada | `/proyectos/[id]?build=<n>` | Dueño, Editor o Lector aceptado del proyecto | La misma pantalla en solo lectura, con la documentación del build `n` (H9). |
 | Proyecto no encontrado | `/proyectos/[id]` | Usuario autenticado sin acceso o id inexistente | Mostrar el mismo 404 para no revelar si un proyecto ajeno existe. |
 | Sistema visual | `/sistema` | Usuario autenticado | Revisar componentes, foco, contraste y estados sin modificar datos reales. |
 
@@ -410,88 +473,127 @@ La pantalla principal de proyectos contempla cinco estados distintos: **cargando
 **vacío**, **sin resultados** y **error**. Vacío significa que la persona no tiene proyectos; sin
 resultados significa que sí tiene proyectos pero el filtro actual no coincide con ninguno.
 
+### El recorrido
+
 El recorrido completo, paso a paso, del flujo que da valor al sistema (no un ABM).
 
-1. El dueño crea un proyecto e invita colaboradores con rol editor o lector. Cada invitacion queda pendiente hasta que el destinatario la acepta desde el correo    recibido (ver H2 y seccion 8).
-2. Un editor registra historias de usuario con descripcion y criterios de aceptacion.
-3. El equipo arma un diagrama visual creando actividades y conectandolas con flechas.
-4. Si una actividad necesita mas detalle, el editor entra a su diagrama interno y crea
-   subactividades.
-5. Cada vez que se modifica una historia o actividad, el sistema crea una nueva version y conserva
-   las anteriores.
-6. Antes de una entrega, parcial o demo, el dueño o un editor cierra la version en desarrollo
-   asignandole `Version.Build.Patch` y nombre; el sistema abre automaticamente la siguiente version
-   en desarrollo.
-7. Mas adelante, cualquier colaborador del proyecto puede elegir esa version cerrada desde el
-   selector para reconstruir en modo lectura como estaba la documentacion en ese momento.
+1. El dueño crea un proyecto e invita colaboradores con rol editor o lector. Cada invitación queda
+   pendiente hasta que el destinatario la acepta desde el correo recibido (ver H2 y sección 8).
+2. Un editor registra historias de usuario con descripción y criterios de aceptación (H3).
+3. El equipo crea diagramas, los llena de actividades, las conecta con flechas y las asocia a las
+   historias que implementan (H5, H6, H10).
+4. Si una actividad necesita más detalle, se abre su diagrama interno y se crean subactividades (H7).
+5. Cada cambio confirmado crea una revisión nueva del elemento y conserva las anteriores (H4, H12).
+6. Antes de una entrega, parcial o demo, el dueño o un editor cierra la versión en desarrollo
+   asignándole `Version.Build.Patch` y nombre; el sistema abre automáticamente el build siguiente (H8).
+7. Más adelante, cualquier colaborador elige esa versión cerrada en el selector y ve la documentación
+   exactamente como estaba, diagramas incluidos (H9).
 
 ## 6. Reglas de negocio
 
 Las restricciones que **no** son obvias y que la IA no puede adivinar. Estas son las que hay que
 revisar a mano.
 
-- Una historia o actividad nunca se sobrescribe: cada guardado crea una version nueva e inmutable.
-- La entidad base (`HistoriaUsuario` o `Actividad`) apunta a una sola version actual.
-- El numero de version aumenta de a uno dentro de cada historia o actividad.
-- Las escrituras que crean una nueva version de una historia o actividad bloquean el registro
-  correspondiente durante toda la transaccion contra la base (se libera al confirmar o revertir);
-  esto evita que dos ediciones simultaneas sobre el mismo elemento generen numeros de version en
-  conflicto.
-- Guardar una historia o actividad sin cambios no crea una version nueva.
-- El titulo de una `HistoriaUsuario` es unico dentro de su proyecto (no distingue mayusculas/minusculas
-  ni espacios al borde, pero si distingue acentos y espacios internos). Se valida tanto al crear (H3)
-  como al editar (H4). No aplica a `Actividad`: su nombre puede repetirse.
-- Eliminar una historia o una actividad no la borra: crea una nueva version marcada `eliminado`, deja
-  de aparecer en la version en desarrollo y en las versiones de proyecto que se cierren desde ese
-  momento, pero sigue visible en las versiones de proyecto cerradas anteriores (ver seccion 3). Solo
-  el dueño puede hacerlo.
-- Un proyecto tiene siempre exactamente una version `en_desarrollo` (nunca cero, nunca mas de una); se
-  crea automaticamente al crear el proyecto, y una nueva se crea automaticamente cada vez que se
-  cierra la anterior.
-- La version `en_desarrollo` es donde se edita: no tiene `Version.Build.Patch` todavia y sus
-  historias/actividades "vigentes" son simplemente el estado actual del proyecto (no hay una foto
-  guardada de ella hasta que se cierra).
-- Una version en desarrollo sin cambios (nada creado, editado ni eliminado desde que se abrio) no se
-  puede cerrar.
-- Cerrar una version no copia toda la documentacion: guarda referencias a las versiones vigentes de
-  cada historia/actividad al momento del cierre, y recien ahi queda inmutable.
-- Una version cerrada no cambia aunque despues se editen historias, actividades o diagramas bajo la
-  nueva version en desarrollo. Una version cerrada no tiene autor (ver seccion 3).
-- Una version cerrada se identifica por `Version.Build.Patch` (enteros no negativos). La combinacion
-  `0.0.0` no es valida. No puede repetirse la combinacion dentro del mismo proyecto, y cada cierre
-  nuevo debe quedar por encima de la ultima version cerrada existente (orden `Version`, luego
-  `Build`, luego `Patch`), aunque se pueden saltear numeros.
-- Solo el dueño y los editores pueden crear o modificar documentacion. Eliminar una historia o
-  actividad es exclusivo del dueño (ver mas arriba).
-- El lector puede consultar documentacion actual, versiones anteriores y versiones de proyecto, pero
-  no puede crear, editar ni eliminar.
-- Solo el dueño puede administrar colaboradores y roles del proyecto.
-- Un proyecto tiene exactamente un dueño: el que lo creo. El dueño no puede invitarse a si mismo como
-  colaborador de su propio proyecto y tampoco puede dejar de colaborar con el (para eso elimina el
-  proyecto). Los roles que el dueño puede asignar a un colaborador son solo editor y lector. No existe
-  hoy una forma de transferir la titularidad de un proyecto a otro usuario (ver seccion 9).
-- Invitar a un colaborador crea una invitacion con estado pendiente, aceptada o rechazada; solo con
-  invitacion aceptada tiene acceso al proyecto. La invitacion se envia por correo y el destinatario debe aceptarla o rechazarla desde los enlaces recibidos (ver H2 y seccion 8).
-- Un colaborador en estado aceptado es visible para cualquier colaborador del proyecto; uno en
-  estado pendiente o rechazado solo es visible para el dueño.
-- Solo se puede invitar a un usuario que ya tenga cuenta (ya haya iniciado sesion).
-- Si se quita a un colaborador del proyecto, pierde el acceso, pero las versiones de historias o
-  actividades que escribio se conservan y lo siguen mostrando como autor.
-- Una actividad puede tener una actividad padre para representar diagramas anidados.
-- Una conexion solo puede unir actividades del mismo proyecto y del mismo nivel de diagrama.
-- Una conexion se puede eliminar sin eliminar las actividades que conecta. A diferencia de historias y
-  actividades, una conexion eliminada se borra de la base (no se versiona).
-- Borrar un proyecto borra en cascada toda su documentacion, incluido el historial de versiones
-  cerradas: no queda nada recuperable. Por eso esta accion (cuando se implemente) requiere que el
-  sistema le avise al dueño que va a perder todo y le pida confirmar la eliminacion una segunda vez
-  antes de ejecutarla. Ver detalle completo de reglas de borrado por entidad en la seccion 3.
-- Para reconstruir correctamente una version de proyecto, tambien se deberia conservar el estado de
-  las conexiones y posiciones del diagrama correspondientes a ese momento; **hoy no se conserva**
-  (una version de proyecto solo referencia el contenido documental de historias/actividades, no el
-  layout ni las conexiones del diagrama en ese instante). Queda como deuda tecnica conocida.
-- No se implementan branches ni merges como Git; el sistema usa revisiones lineales inspiradas en
-  Git.
+### Versionado
 
+- Un elemento versionable nunca se sobrescribe: cada cambio confirmado crea una revisión nueva e
+  inmutable. La versión del elemento aumenta de a uno.
+- Cada revisión registra el build en el que se confirmó: la versión de proyecto en desarrollo en ese
+  momento.
+- **Reconstrucción de un build.** Para ver el build `n`, de cada elemento se toma **la última revisión
+  confirmada en el build `n` o en uno anterior** (orden de los builds dentro del proyecto). Si esa
+  revisión está marcada eliminado, el elemento no se muestra. Un elemento que nadie tocó durante el
+  build `n` aparece igual, con la revisión que traía de antes.
+- Las referencias (padre, origen, destino, historias asociadas) se interpretan en el mismo build que
+  se está mirando. Una asociación a una historia que en ese build está eliminada no se muestra.
+- El build en desarrollo muestra el estado actual: la última revisión de cada elemento.
+- Confirmar un cambio que deja el elemento igual a su revisión vigente no crea una revisión.
+
+### Borrador y concurrencia
+
+- Las ediciones se acumulan en un borrador en el navegador. Solo "Confirmar cambios" escribe en la
+  base, y crea una revisión por elemento modificado, en una sola transacción (todo o nada).
+- Durante la confirmación se bloquea el build en desarrollo del proyecto hasta el final de la
+  transacción. Así dos confirmaciones del mismo proyecto, o una confirmación y un cierre de versión,
+  nunca se mezclan ni generan números de versión en conflicto.
+- El borrador recuerda en qué versión estaba cada elemento cuando se empezó a editarlo. Si al confirmar
+  algún elemento ya tiene una revisión más nueva confirmada por otro usuario, se rechaza toda la
+  confirmación y se informa qué elementos tienen conflicto. No hay fusión automática.
+- Al confirmar, todo elemento referenciado (padre, origen, destino, historia asociada) tiene que
+  existir y no estar eliminado en el build en desarrollo. Si no, se rechaza la confirmación.
+- La pantalla consulta periódicamente si otros confirmaron cambios. Sin borrador, se actualiza sola;
+  con borrador, avisa (ver H12).
+
+### Historias de usuario
+
+- El título es único entre las historias vigentes (no eliminadas) del proyecto. No distingue
+  mayúsculas/minúsculas ni espacios al borde, pero sí acentos y espacios internos. Se valida al crear
+  y al editar.
+- Una historia necesita título, descripción y al menos un criterio de aceptación.
+- Eliminar una historia quita sus asociaciones con actividades desde ese build. Las actividades no se
+  modifican: la asociación deja de mostrarse porque la historia está eliminada.
+
+### Actividades y diagramas
+
+- Una actividad sin padre es un diagrama: no tiene posición y no se conecta con flechas. Una actividad
+  con padre tiene posición en el lienzo de su padre.
+- Una actividad puede moverse a cualquier otra actividad del mismo proyecto, o a ninguna, salvo a sí
+  misma o a una de sus actividades internas (en cualquier nivel). No hay límite de profundidad.
+- Al mover una actividad de padre, sus flechas se eliminan en el mismo cambio.
+- Eliminar una actividad elimina, en el mismo cambio, todas sus actividades internas (en todos los
+  niveles) y todas las flechas que tocan a cualquiera de ellas.
+- El nombre de una actividad puede repetirse.
+- Una actividad se puede asociar a varias historias; una historia, tener varias actividades
+  asociadas. La asociación vive en la revisión de la actividad.
+
+### Flechas
+
+- Una flecha une dos actividades del mismo proyecto y del mismo diagrama (mismo padre, que no puede ser
+  ninguno).
+- Se permiten las flechas de una actividad hacia sí misma y los ciclos.
+- No puede haber dos flechas vigentes con el mismo origen y el mismo destino.
+- Una flecha se elimina sin eliminar las actividades que une.
+
+### Versiones de proyecto (builds)
+
+- Un proyecto tiene siempre exactamente un build en desarrollo; se crea con el proyecto y se abre uno
+  nuevo automáticamente cada vez que se cierra el anterior.
+- El build en desarrollo no tiene número todavía. Al cerrarlo recibe `Version.Build.Patch` y queda
+  inmutable: las revisiones que se confirmen después pertenecen al build siguiente.
+- Cerrar una versión no copia documentación: el estado del build cerrado se obtiene con la regla de
+  reconstrucción.
+- Un build sin cambios confirmados no se puede cerrar.
+- Una versión cerrada se identifica por `Version.Build.Patch` (enteros no negativos). `0.0.0` no es
+  válida, no se repite dentro del proyecto, y cada cierre debe quedar por encima del anterior (orden
+  `Version`, luego `Build`, luego `Patch`), aunque se pueden saltear números.
+- Una versión cerrada no tiene autor y no se puede editar.
+
+### Permisos
+
+- Dueño y Editor crean, modifican y eliminan historias, actividades y flechas, y cierran versiones.
+- El Lector consulta la documentación actual, el historial de cada elemento y las versiones cerradas,
+  pero no puede crear, editar ni eliminar.
+- Solo el Dueño administra colaboradores y roles, y edita o elimina el proyecto.
+
+### Colaboradores
+
+- Un proyecto tiene exactamente un dueño: el que lo creó. El dueño no puede invitarse a sí mismo y
+  tampoco puede dejar de colaborar (para eso elimina el proyecto). Los roles que el dueño puede asignar
+  son solo editor y lector. No existe hoy una forma de transferir la titularidad (ver sección 9).
+- Invitar a un colaborador crea una invitación con estado pendiente, aceptada o rechazada; solo con
+  invitación aceptada tiene acceso al proyecto. La invitación se envía por correo y el destinatario la
+  acepta o la rechaza desde los enlaces recibidos (ver H2 y sección 8).
+- Un colaborador en estado aceptado es visible para cualquier colaborador del proyecto; uno en estado
+  pendiente o rechazado solo es visible para el dueño.
+- Solo se puede invitar a un usuario que ya tenga cuenta (ya haya iniciado sesión).
+- Si se quita a un colaborador, pierde el acceso, pero las revisiones que escribió se conservan y lo
+  siguen mostrando como autor.
+
+### Proyecto
+
+- Borrar un proyecto borra en cascada toda su documentación, incluidas las versiones cerradas: no
+  queda nada recuperable. Por eso el sistema le avisa al dueño y le pide una segunda confirmación.
+- No se implementan branches ni merges como Git; las revisiones son lineales.
 ## 7. Requisitos no funcionales
 
 ### Usabilidad
@@ -558,26 +660,30 @@ se revierte: ver la columna "Si el mail falla" de la tabla de arriba.
 
 ## 9. Fuera de alcance
 
-Lo que decidimos **no** hacer.
+Lo que decidimos **no** hacer, o dejar para más adelante.
 
-- **Branches y merges como Git.** El versionado es lineal por historia y por actividad.
-- **Diff visual entre versiones.** Se podran consultar versiones anteriores, pero no comparar
-  automaticamente cambios campo por campo.
-- **Restaurar una version de proyecto completa, o editar documentacion parado en una version
-  anterior.** El MVP permite consultarla en modo lectura desde el selector de version (ver H9), no
-  volver todo el proyecto a ese estado ni modificarlo desde ahi.
-- **Analisis y gestion de impactos al editar una version vieja.** Requerimiento futuro: cuando se
-  habilite editar documentacion parado en una version anterior, el sistema deberia analizar si el
-  cambio genera conflictos con los diagramas de actividades documentados en versiones posteriores, y
-  notificar al usuario si los hay. No entra en el MVP.
-- **Transferir la titularidad de un proyecto a otro usuario.** Podria agregarse en el futuro; hoy un
-  proyecto queda a nombre de quien lo creo para siempre, y solo se puede eliminar (ver seccion 3).
-- **Edicion colaborativa en tiempo real.** Dos usuarios no editan simultaneamente el mismo diagrama
-  con sincronizacion instantanea.
+- **Branches y merges como Git.** El versionado es lineal por elemento.
+- **Diff visual entre versiones.** Se pueden consultar revisiones y builds anteriores, pero no
+  comparar automáticamente cambios campo por campo.
+- **Restaurar un build completo, o editar documentación parado en una versión cerrada.** Una versión
+  cerrada se consulta en modo lectura (ver H9).
+- **Análisis y gestión de impactos al editar una versión vieja.** Requerimiento futuro: cuando se
+  habilite editar parado en una versión anterior, el sistema debería analizar si el cambio genera
+  conflictos con los diagramas de versiones posteriores y notificarlo.
+- **Fusión automática de cambios y edición colaborativa en tiempo real.** Dos usuarios pueden trabajar
+  a la vez sobre el mismo proyecto, pero el sistema no combina sus cambios: si chocan, el segundo en
+  confirmar recarga y rehace (ver H12).
+- **Flechas con forma personalizable** (puntos intermedios, curvas o lado del nodo elegidos por el
+  usuario, como en draw.io). Hoy una flecha se dibuja sola de borde a borde.
+- **Diagramas de entidades.** Se podrían sumar como otro tipo de elemento versionable, con el mismo
+  mecanismo que las actividades. Queda pendiente.
+- **Entregables por versión y roles PO/PM.** A definir: planificar qué historias o entregables debe
+  incluir una versión antes de cerrarla y que el PO o el PM controlen su cumplimiento. Hoy una versión
+  es la foto de todo lo documentado al cerrarla, y el PO o PM usan el rol Dueño.
+- **Transferir la titularidad de un proyecto a otro usuario.** Hoy un proyecto queda a nombre de quien
+  lo creó, y solo se puede eliminar (ver sección 3).
 - **Comentarios y aprobaciones.**
 - **Notificaciones push.**
-- **IA generando documentacion o diagramas.**
-- **Epicas.** Pueden agregarse despues como agrupador de historias, pero no son imprescindibles para
-  el MVP.
-- **App nativa.** Es una aplicacion web y tiene que funcionar bien en escritorio y notebook; soporte
-  movil basico si el equipo llega con tiempo.
+- **IA generando documentación o diagramas.**
+- **Épicas.** Pueden agregarse después como agrupador de historias.
+- **App nativa.** Es una aplicación web para escritorio y notebook, con soporte móvil básico.

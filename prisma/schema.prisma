@@ -20,20 +20,9 @@ enum RolProyecto {
   READER
 }
 
-enum EstadoActividad {
-  PENDIENTE
-  EN_PROGRESO
-  COMPLETADA
-}
-
 enum EstadoVersionProyecto {
   EN_DESARROLLO
   CERRADA
-}
-
-enum TipoVersionProyectoItem {
-  HISTORIA
-  ACTIVIDAD
 }
 
 enum EstadoInvitacion {
@@ -50,10 +39,11 @@ model Usuario {
   nombre   String
   creadoEn DateTime @default(now())
 
-  proyectosCreados   Proyecto[]               @relation("ProyectoCreador")
+  proyectosCreados   Proyecto[]                 @relation("ProyectoCreador")
   membresias         MiembroProyecto[]
   historiaVersiones  HistoriaUsuarioVersion[]
   actividadVersiones ActividadVersion[]
+  conexionVersiones  ConexionActividadVersion[]
 }
 
 model Proyecto {
@@ -95,130 +85,174 @@ model MiembroProyecto {
   @@index([usuarioId])
 }
 
-// Identidad estable de una historia. "versionActualId" apunta a su revision vigente;
-// el titulo unico por proyecto se valida en lib/db (no es un constraint simple de DB
-// porque depende del titulo de la version ACTUAL, no de todas las versiones).
+// ---------------------------------------------------------------------------
+// Elementos versionables: historias, actividades y flechas (docs/spec.md, seccion 3).
+//
+// Cada tipo tiene dos tablas:
+//   - la identidad (solo id y proyecto): no cambia nunca y es el destino de las
+//     claves foraneas, para que la base impida referencias rotas;
+//   - las revisiones: una fila por cada cambio confirmado, inmutable. Toda revision
+//     guarda numeroVersion (version del elemento), versionProyectoId (el build en
+//     el que se confirmo), eliminado, autor y fecha, ademas de sus datos propios.
+//
+// Las referencias entre elementos (padre, origen, destino, historias asociadas)
+// apuntan a la identidad, no a una revision: que revision corresponde se resuelve
+// con la regla de reconstruccion de un build (lib/documentacion.ts).
+//
+// Las referencias cruzadas usan onDelete: NoAction (se verifica al final de la
+// sentencia): asi borrar un proyecto, que se lleva en cascada todo lo suyo, no
+// choca con el orden en que Postgres borra las filas.
+// ---------------------------------------------------------------------------
+
 model HistoriaUsuario {
-  id       String   @id @default(cuid())
-  creadoEn DateTime @default(now())
+  id String @id @default(cuid())
 
   proyectoId String
   proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
 
-  versionActualId String?                 @unique
-  versionActual   HistoriaUsuarioVersion? @relation("HistoriaVersionActual", fields: [versionActualId], references: [id], onDelete: SetNull)
-
-  versiones HistoriaUsuarioVersion[] @relation("HistoriaVersiones")
+  revisiones   HistoriaUsuarioVersion[]
+  asociaciones ActividadVersionHistoria[]
 
   @@index([proyectoId])
 }
 
-// Revision inmutable: nunca se edita, cada cambio crea una fila nueva.
 model HistoriaUsuarioVersion {
   id                  String   @id @default(cuid())
   numeroVersion       Int
+  eliminado           Boolean  @default(false)
   titulo              String
   descripcion         String
   criteriosAceptacion String[]
   creadoEn            DateTime @default(now())
 
   historiaId String
-  historia   HistoriaUsuario @relation("HistoriaVersiones", fields: [historiaId], references: [id], onDelete: Cascade)
+  historia   HistoriaUsuario @relation(fields: [historiaId], references: [id], onDelete: Cascade)
+
+  versionProyectoId String
+  versionProyecto   VersionProyecto @relation(fields: [versionProyectoId], references: [id], onDelete: NoAction)
 
   autorId String
   autor   Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
-
-  esVersionActualDe    HistoriaUsuario?      @relation("HistoriaVersionActual")
-  versionProyectoItems VersionProyectoItem[]
 
   @@unique([historiaId, numeroVersion])
-  @@index([historiaId])
+  @@index([versionProyectoId])
   @@index([autorId])
 }
 
-// Nodo estable del diagrama; puede tener una actividad padre (diagramas anidados).
-// La posicion vive aca, no se versiona (deuda tecnica conocida: no se conserva el
-// layout del diagrama al cerrar una version de proyecto — ver spec.md seccion 6).
+// Una actividad sin padre es un diagrama; las que tienen padre son los nodos de su
+// diagrama interno. La posicion y el padre viven en la revision: al mirar un build
+// cerrado, el diagrama se ve exactamente como estaba.
 model Actividad {
-  id        String   @id @default(cuid())
-  posicionX Float    @default(0)
-  posicionY Float    @default(0)
-  creadoEn  DateTime @default(now())
+  id String @id @default(cuid())
 
   proyectoId String
   proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
 
-  actividadPadreId String?
-  actividadPadre   Actividad?  @relation("ActividadHijas", fields: [actividadPadreId], references: [id], onDelete: Cascade)
-  actividadesHijas Actividad[] @relation("ActividadHijas")
-
-  versionActualId String?           @unique
-  versionActual   ActividadVersion? @relation("ActividadVersionActual", fields: [versionActualId], references: [id], onDelete: SetNull)
-
-  versiones         ActividadVersion[]  @relation("ActividadVersiones")
-  conexionesOrigen  ConexionActividad[] @relation("ConexionOrigen")
-  conexionesDestino ConexionActividad[] @relation("ConexionDestino")
+  revisiones        ActividadVersion[]         @relation("ActividadRevisiones")
+  revisionesHijas   ActividadVersion[]         @relation("ActividadPadre")
+  conexionesOrigen  ConexionActividadVersion[] @relation("ConexionOrigen")
+  conexionesDestino ConexionActividadVersion[] @relation("ConexionDestino")
 
   @@index([proyectoId])
-  @@index([actividadPadreId])
 }
 
-// Revision inmutable de la documentacion de una actividad.
 model ActividadVersion {
-  id            String          @id @default(cuid())
+  id            String   @id @default(cuid())
   numeroVersion Int
+  eliminado     Boolean  @default(false)
   nombre        String
-  documentacion String
-  estado        EstadoActividad
-  creadoEn      DateTime        @default(now())
+  documentacion String   @default("")
+  // Nulas en un diagrama (actividad sin padre): no se dibuja en ningun lienzo.
+  posicionX     Float?
+  posicionY     Float?
+  creadoEn      DateTime @default(now())
 
   actividadId String
-  actividad   Actividad @relation("ActividadVersiones", fields: [actividadId], references: [id], onDelete: Cascade)
+  actividad   Actividad @relation("ActividadRevisiones", fields: [actividadId], references: [id], onDelete: Cascade)
+
+  actividadPadreId String?
+  actividadPadre   Actividad? @relation("ActividadPadre", fields: [actividadPadreId], references: [id], onDelete: NoAction)
+
+  versionProyectoId String
+  versionProyecto   VersionProyecto @relation(fields: [versionProyectoId], references: [id], onDelete: NoAction)
 
   autorId String
   autor   Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
 
-  esVersionActualDe    Actividad?            @relation("ActividadVersionActual")
-  versionProyectoItems VersionProyectoItem[]
+  historias ActividadVersionHistoria[]
 
   @@unique([actividadId, numeroVersion])
-  @@index([actividadId])
+  @@index([actividadPadreId])
+  @@index([versionProyectoId])
   @@index([autorId])
 }
 
-// Flecha entre dos actividades del mismo proyecto y del mismo nivel de diagrama
-// (regla validada en lib/db, no en la DB: requiere comparar actividadPadreId de ambas).
+// Relacion N-N entre una revision de actividad y las historias que implementa.
+model ActividadVersionHistoria {
+  actividadVersionId String
+  actividadVersion   ActividadVersion @relation(fields: [actividadVersionId], references: [id], onDelete: Cascade)
+
+  historiaId String
+  historia   HistoriaUsuario @relation(fields: [historiaId], references: [id], onDelete: NoAction)
+
+  @@id([actividadVersionId, historiaId])
+  @@index([historiaId])
+}
+
+// Flecha entre dos actividades del mismo diagrama. Se versiona como cualquier
+// elemento: un build cerrado muestra las flechas que existian en ese momento. La
+// unicidad de origen-destino se valida en lib/documentacion.ts sobre las flechas
+// vigentes (una eliminada puede volver a crearse).
 model ConexionActividad {
-  id       String   @id @default(cuid())
-  creadoEn DateTime @default(now())
+  id String @id @default(cuid())
 
   proyectoId String
   proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
 
-  actividadOrigenId String
-  actividadOrigen   Actividad @relation("ConexionOrigen", fields: [actividadOrigenId], references: [id], onDelete: Cascade)
+  revisiones ConexionActividadVersion[]
 
-  actividadDestinoId String
-  actividadDestino   Actividad @relation("ConexionDestino", fields: [actividadDestinoId], references: [id], onDelete: Cascade)
-
-  @@unique([actividadOrigenId, actividadDestinoId])
   @@index([proyectoId])
-  @@index([actividadDestinoId])
 }
 
-// Hito con nombre del proyecto (antes "Checkpoint"). Nace "EN_DESARROLLO" (sin numero,
-// es donde se edita) y se "cierra" asignandole Version.Build.Patch; ahi queda inmutable
-// y se congela la referencia a la version vigente de cada historia/actividad. Al cerrar
-// se abre automaticamente la siguiente version en desarrollo del proyecto.
+model ConexionActividadVersion {
+  id            String   @id @default(cuid())
+  numeroVersion Int
+  eliminado     Boolean  @default(false)
+  creadoEn      DateTime @default(now())
+
+  conexionId String
+  conexion   ConexionActividad @relation(fields: [conexionId], references: [id], onDelete: Cascade)
+
+  actividadOrigenId String
+  actividadOrigen   Actividad @relation("ConexionOrigen", fields: [actividadOrigenId], references: [id], onDelete: NoAction)
+
+  actividadDestinoId String
+  actividadDestino   Actividad @relation("ConexionDestino", fields: [actividadDestinoId], references: [id], onDelete: NoAction)
+
+  versionProyectoId String
+  versionProyecto   VersionProyecto @relation(fields: [versionProyectoId], references: [id], onDelete: NoAction)
+
+  autorId String
+  autor   Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  @@unique([conexionId, numeroVersion])
+  @@index([actividadOrigenId])
+  @@index([actividadDestinoId])
+  @@index([versionProyectoId])
+  @@index([autorId])
+}
+
+// Un build del proyecto (antes "Checkpoint"). Nace EN_DESARROLLO (sin numero, es
+// donde se trabaja) y se "cierra" asignandole Version.Build.Patch. "orden" es el
+// numero correlativo del build dentro del proyecto (1, 2, 3...): ordena los builds
+// para la regla de reconstruccion. Cerrar no copia nada: el estado del build lo
+// definen las revisiones confirmadas hasta el.
 //
-// Solo puede haber una version EN_DESARROLLO por proyecto a la vez: se valida en
-// lib/db (ver tambien la migracion que agrega el indice unico parcial).
-//
-// A proposito, no tiene autor: documenta el estado del proyecto en un momento,
-// no algo que una persona firma (a diferencia de HistoriaUsuarioVersion y
-// ActividadVersion, que si tienen autorId). Ver docs/spec.md seccion 3.
+// Solo puede haber una version EN_DESARROLLO por proyecto (indice unico parcial
+// en la migracion un_solo_version_abierta). No tiene autor (docs/spec.md seccion 3).
 model VersionProyecto {
   id       String                @id @default(cuid())
+  orden    Int
   estado   EstadoVersionProyecto @default(EN_DESARROLLO)
   creadoEn DateTime              @default(now())
 
@@ -233,29 +267,11 @@ model VersionProyecto {
   proyectoId String
   proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
 
-  items VersionProyectoItem[]
+  historiaRevisiones  HistoriaUsuarioVersion[]
+  actividadRevisiones ActividadVersion[]
+  conexionRevisiones  ConexionActividadVersion[]
 
+  @@unique([proyectoId, orden])
   @@unique([proyectoId, numeroVersion, numeroBuild, numeroPatch])
   @@index([proyectoId])
-}
-
-// Referencia a la version exacta (de historia o actividad) vigente al cerrar una
-// version de proyecto. Exactamente uno de los dos campos va completo segun "tipo"
-// (se valida en lib/db).
-model VersionProyectoItem {
-  id   String                  @id @default(cuid())
-  tipo TipoVersionProyectoItem
-
-  versionProyectoId String
-  versionProyecto   VersionProyecto @relation(fields: [versionProyectoId], references: [id], onDelete: Cascade)
-
-  historiaUsuarioVersionId String?
-  historiaUsuarioVersion   HistoriaUsuarioVersion? @relation(fields: [historiaUsuarioVersionId], references: [id], onDelete: Restrict)
-
-  actividadVersionId String?
-  actividadVersion   ActividadVersion? @relation(fields: [actividadVersionId], references: [id], onDelete: Restrict)
-
-  @@index([versionProyectoId])
-  @@index([historiaUsuarioVersionId])
-  @@index([actividadVersionId])
 }

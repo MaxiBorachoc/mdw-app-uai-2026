@@ -7,9 +7,12 @@
  * mismos datos y para poder mostrar el sistema sin cargar todo a mano. Debe poder
  * correrse varias veces sin romper (por eso usamos upsert e ids fijos).
  *
- * Cubre el flujo principal completo: historia con su versión, actividad con su
- * versión, una conexión entre actividades, y una versión de proyecto ya cerrada
- * (con sus items congelados) más otra abierta en desarrollo.
+ * Muestra el versionado por build (docs/spec.md, sección 6):
+ *   - Build 1, cerrado como 1.0.0: una historia, un diagrama con dos actividades
+ *     y una flecha entre ellas.
+ *   - Build 2, en desarrollo: la actividad A se movió y se asoció a la historia,
+ *     y se agregó una flecha de B a A (un ciclo).
+ * Al alternar entre los dos builds en el selector de versión se ve la diferencia.
  */
 import { PrismaClient } from "@prisma/client";
 
@@ -42,145 +45,147 @@ async function main() {
     },
   });
 
-  // Historia de usuario con su primera version, marcada como la version actual.
+  const build1 = await prisma.versionProyecto.upsert({
+    where: { id: "build-ejemplo-1" },
+    update: {},
+    create: {
+      id: "build-ejemplo-1",
+      orden: 1,
+      estado: "CERRADA",
+      numeroVersion: 1,
+      numeroBuild: 0,
+      numeroPatch: 0,
+      nombre: "Primera versión de ejemplo",
+      descripcion: "Cierre de ejemplo para probar la consulta de una versión cerrada.",
+      cerradaEl: new Date(),
+      proyectoId: proyecto.id,
+    },
+  });
+  const build2 = await prisma.versionProyecto.upsert({
+    where: { id: "build-ejemplo-2" },
+    update: {},
+    create: { id: "build-ejemplo-2", orden: 2, estado: "EN_DESARROLLO", proyectoId: proyecto.id },
+  });
+
+  const comun = (versionProyectoId: string) => ({ versionProyectoId, autorId: admin.id });
+
+  // Build 1: la historia, el diagrama, sus dos actividades y la flecha A -> B.
   await prisma.historiaUsuario.upsert({
     where: { id: "historia-ejemplo" },
     update: {},
     create: { id: "historia-ejemplo", proyectoId: proyecto.id },
   });
-  const historiaVersion = await prisma.historiaUsuarioVersion.upsert({
+  await prisma.historiaUsuarioVersion.upsert({
     where: { id: "historia-ejemplo-v1" },
     update: {},
     create: {
       id: "historia-ejemplo-v1",
+      historiaId: "historia-ejemplo",
       numeroVersion: 1,
       titulo: "Historia de ejemplo",
       descripcion: "Como usuario quiero ver datos de ejemplo para probar el sistema.",
-      criteriosAceptacion: ["Se puede ver la historia en el diagrama", "Tiene al menos una version"],
-      historiaId: "historia-ejemplo",
-      autorId: admin.id,
+      criteriosAceptacion: ["Se ve la historia en la barra lateral", "Tiene al menos una revisión"],
+      ...comun(build1.id),
     },
   });
-  await prisma.historiaUsuario.update({
-    where: { id: "historia-ejemplo" },
-    data: { versionActualId: historiaVersion.id },
-  });
 
-  // Dos actividades con su primera version cada una, conectadas entre si.
-  await prisma.actividad.upsert({
-    where: { id: "actividad-ejemplo-a" },
+  for (const id of ["diagrama-ejemplo", "actividad-ejemplo-a", "actividad-ejemplo-b"]) {
+    await prisma.actividad.upsert({ where: { id }, update: {}, create: { id, proyectoId: proyecto.id } });
+  }
+  await prisma.actividadVersion.upsert({
+    where: { id: "diagrama-ejemplo-v1" },
     update: {},
-    create: { id: "actividad-ejemplo-a", proyectoId: proyecto.id, posicionX: 0, posicionY: 0 },
+    create: {
+      id: "diagrama-ejemplo-v1",
+      actividadId: "diagrama-ejemplo",
+      numeroVersion: 1,
+      nombre: "Proceso de ejemplo",
+      documentacion: "Diagrama de ejemplo con dos pasos.",
+      ...comun(build1.id),
+    },
   });
-  const actividadVersionA = await prisma.actividadVersion.upsert({
+  await prisma.actividadVersion.upsert({
     where: { id: "actividad-ejemplo-a-v1" },
     update: {},
     create: {
       id: "actividad-ejemplo-a-v1",
+      actividadId: "actividad-ejemplo-a",
       numeroVersion: 1,
       nombre: "Actividad A de ejemplo",
       documentacion: "Primer paso del flujo de ejemplo.",
-      estado: "COMPLETADA",
-      actividadId: "actividad-ejemplo-a",
-      autorId: admin.id,
+      actividadPadreId: "diagrama-ejemplo",
+      posicionX: 40,
+      posicionY: 40,
+      ...comun(build1.id),
     },
   });
-  await prisma.actividad.update({
-    where: { id: "actividad-ejemplo-a" },
-    data: { versionActualId: actividadVersionA.id },
-  });
-
-  await prisma.actividad.upsert({
-    where: { id: "actividad-ejemplo-b" },
-    update: {},
-    create: { id: "actividad-ejemplo-b", proyectoId: proyecto.id, posicionX: 300, posicionY: 0 },
-  });
-  const actividadVersionB = await prisma.actividadVersion.upsert({
+  await prisma.actividadVersion.upsert({
     where: { id: "actividad-ejemplo-b-v1" },
     update: {},
     create: {
       id: "actividad-ejemplo-b-v1",
+      actividadId: "actividad-ejemplo-b",
       numeroVersion: 1,
       nombre: "Actividad B de ejemplo",
       documentacion: "Segundo paso del flujo de ejemplo.",
-      estado: "EN_PROGRESO",
-      actividadId: "actividad-ejemplo-b",
-      autorId: admin.id,
+      actividadPadreId: "diagrama-ejemplo",
+      posicionX: 320,
+      posicionY: 40,
+      ...comun(build1.id),
     },
-  });
-  await prisma.actividad.update({
-    where: { id: "actividad-ejemplo-b" },
-    data: { versionActualId: actividadVersionB.id },
   });
 
   await prisma.conexionActividad.upsert({
-    where: {
-      actividadOrigenId_actividadDestinoId: {
-        actividadOrigenId: "actividad-ejemplo-a",
-        actividadDestinoId: "actividad-ejemplo-b",
-      },
-    },
+    where: { id: "flecha-ejemplo-a-b" },
+    update: {},
+    create: { id: "flecha-ejemplo-a-b", proyectoId: proyecto.id },
+  });
+  await prisma.conexionActividadVersion.upsert({
+    where: { id: "flecha-ejemplo-a-b-v1" },
     update: {},
     create: {
-      proyectoId: proyecto.id,
+      id: "flecha-ejemplo-a-b-v1",
+      conexionId: "flecha-ejemplo-a-b",
+      numeroVersion: 1,
       actividadOrigenId: "actividad-ejemplo-a",
       actividadDestinoId: "actividad-ejemplo-b",
+      ...comun(build1.id),
     },
   });
 
-  // Version de proyecto ya cerrada, con las versiones actuales de arriba congeladas.
-  await prisma.versionProyecto.upsert({
-    where: { id: "version-proyecto-ejemplo-cerrada" },
+  // Build 2 (en desarrollo): A se mueve y se asocia a la historia; flecha B -> A.
+  await prisma.actividadVersion.upsert({
+    where: { id: "actividad-ejemplo-a-v2" },
     update: {},
     create: {
-      id: "version-proyecto-ejemplo-cerrada",
-      estado: "CERRADA",
+      id: "actividad-ejemplo-a-v2",
+      actividadId: "actividad-ejemplo-a",
+      numeroVersion: 2,
+      nombre: "Actividad A de ejemplo",
+      documentacion: "Primer paso del flujo de ejemplo.",
+      actividadPadreId: "diagrama-ejemplo",
+      posicionX: 40,
+      posicionY: 200,
+      historias: { create: { historiaId: "historia-ejemplo" } },
+      ...comun(build2.id),
+    },
+  });
+
+  await prisma.conexionActividad.upsert({
+    where: { id: "flecha-ejemplo-b-a" },
+    update: {},
+    create: { id: "flecha-ejemplo-b-a", proyectoId: proyecto.id },
+  });
+  await prisma.conexionActividadVersion.upsert({
+    where: { id: "flecha-ejemplo-b-a-v1" },
+    update: {},
+    create: {
+      id: "flecha-ejemplo-b-a-v1",
+      conexionId: "flecha-ejemplo-b-a",
       numeroVersion: 1,
-      numeroBuild: 0,
-      numeroPatch: 0,
-      nombre: "Primera version de ejemplo",
-      descripcion: "Cierre de ejemplo para probar el historial de versiones.",
-      cerradaEl: new Date(),
-      proyectoId: proyecto.id,
-      items: {
-        connectOrCreate: [
-          {
-            where: { id: "version-proyecto-ejemplo-cerrada-item-historia" },
-            create: {
-              id: "version-proyecto-ejemplo-cerrada-item-historia",
-              tipo: "HISTORIA",
-              historiaUsuarioVersionId: historiaVersion.id,
-            },
-          },
-          {
-            where: { id: "version-proyecto-ejemplo-cerrada-item-actividad-a" },
-            create: {
-              id: "version-proyecto-ejemplo-cerrada-item-actividad-a",
-              tipo: "ACTIVIDAD",
-              actividadVersionId: actividadVersionA.id,
-            },
-          },
-          {
-            where: { id: "version-proyecto-ejemplo-cerrada-item-actividad-b" },
-            create: {
-              id: "version-proyecto-ejemplo-cerrada-item-actividad-b",
-              tipo: "ACTIVIDAD",
-              actividadVersionId: actividadVersionB.id,
-            },
-          },
-        ],
-      },
-    },
-  });
-
-  // Version de proyecto en desarrollo: siempre hay una abierta para seguir editando.
-  await prisma.versionProyecto.upsert({
-    where: { id: "version-proyecto-ejemplo-en-desarrollo" },
-    update: {},
-    create: {
-      id: "version-proyecto-ejemplo-en-desarrollo",
-      estado: "EN_DESARROLLO",
-      proyectoId: proyecto.id,
+      actividadOrigenId: "actividad-ejemplo-b",
+      actividadDestinoId: "actividad-ejemplo-a",
+      ...comun(build2.id),
     },
   });
 
