@@ -52,6 +52,13 @@ model Proyecto {
   descripcion String   @default("")
   creadoEn    DateTime @default(now())
 
+  // Definicion del proyecto (H13). No se versiona: guardarla reemplaza la anterior.
+  problemaNegocio    String    @default("")
+  objetivo           String    @default("")
+  limitesExclusiones String[]  @default([])
+  fechaInicio        DateTime? @db.Date
+  fechaFinEstimada   DateTime? @db.Date
+
   ownerId String
   owner   Usuario @relation("ProyectoCreador", fields: [ownerId], references: [id], onDelete: Restrict)
 
@@ -60,8 +67,29 @@ model Proyecto {
   actividades Actividad[]
   conexiones  ConexionActividad[]
   versiones   VersionProyecto[]
+  entregables Entregable[]
 
   @@index([ownerId])
+}
+
+// H14: algo que el proyecto se compromete a entregar. Cada build cerrado apunta a
+// uno; un entregable puede tener varios builds (el que lo documenta y los que lo
+// corrigen). El estado (pendiente, atrasado...) no se guarda: se calcula.
+model Entregable {
+  id            String    @id @default(cuid())
+  nombre        String
+  descripcion   String    @default("")
+  fechaEstimada DateTime  @db.Date
+  entregado     Boolean   @default(false)
+  fechaEntrega  DateTime? @db.Date
+  creadoEn      DateTime  @default(now())
+
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  versiones VersionProyecto[]
+
+  @@index([proyectoId])
 }
 
 // Relacion N-N entre Usuario y Proyecto, con dato propio: el rol y el estado de
@@ -264,6 +292,14 @@ model VersionProyecto {
   descripcion   String?
   cerradaEl     DateTime?
 
+  // H8: el entregable al que corresponde. Nulo mientras esta EN_DESARROLLO; al
+  // cerrar es obligatorio (lo controla lib/db/versiones.ts). NoAction: no se
+  // puede borrar un entregable al que apunta un build, y al borrar el proyecto
+  // en cascada el chequeo se hace al final de la sentencia (Restrict podria
+  // rechazarlo segun el orden en que Postgres borre las filas).
+  entregableId String?
+  entregable   Entregable? @relation(fields: [entregableId], references: [id], onDelete: NoAction)
+
   proyectoId String
   proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
 
@@ -274,4 +310,5 @@ model VersionProyecto {
   @@unique([proyectoId, orden])
   @@unique([proyectoId, numeroVersion, numeroBuild, numeroPatch])
   @@index([proyectoId])
+  @@index([entregableId])
 }

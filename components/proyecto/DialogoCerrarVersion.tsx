@@ -6,6 +6,9 @@
  * valida con el mismo schema que el servidor; las reglas que dependen de las
  * otras versiones (no repetir, no retroceder, que haya cambios) las decide el
  * servidor y el mensaje se muestra acá.
+ *
+ * Todo cierre corresponde a un entregable (obligatorio). Si el proyecto todavía
+ * no tiene ninguno, el diálogo lo avisa en vez de mostrar el formulario.
  */
 import { useState, type FormEvent } from "react";
 import { Alert } from "@/components/ui/alert";
@@ -13,18 +16,27 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { estadoEntregable, etiquetaEstadoEntregable } from "@/lib/entregables";
+import type { EntregableVista } from "@/lib/schemas/entregable";
 import { cerrarVersionProyectoSchema, type CerrarVersionProyectoInput } from "@/lib/schemas/versionProyecto";
+import { formatearFecha } from "@/lib/utils";
 
 export function DialogoCerrarVersion({
   abierto,
   sugerencia,
   hayBorrador,
+  entregables,
+  hoy,
+  esDueno,
   onCerrar,
   onConfirmar,
 }: {
   abierto: boolean;
   sugerencia: { numeroVersion: number; numeroBuild: number; numeroPatch: number };
   hayBorrador: boolean;
+  entregables: EntregableVista[];
+  hoy: string;
+  esDueno: boolean;
   onCerrar: () => void;
   // Devuelve el mensaje de error del servidor, o null si se cerró.
   onConfirmar: (datos: CerrarVersionProyectoInput) => Promise<string | null>;
@@ -36,6 +48,7 @@ export function DialogoCerrarVersion({
   });
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  const [entregableId, setEntregableId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -47,10 +60,12 @@ export function DialogoCerrarVersion({
       numeroPatch: numeros.numeroPatch === "" ? Number.NaN : Number(numeros.numeroPatch),
       nombre: nombre || undefined,
       descripcion: descripcion || undefined,
+      entregableId,
     });
     if (!datos.success) {
       const issue = datos.error.issues[0];
-      setError(issue?.path[0] && issue.code === "invalid_type"
+      const esNumero = ["numeroVersion", "numeroBuild", "numeroPatch"].includes(String(issue?.path[0]));
+      setError(esNumero && issue?.code === "invalid_type"
         ? "Version, Build y Patch tienen que ser números enteros no negativos."
         : issue?.message ?? "Datos inválidos");
       return;
@@ -91,6 +106,21 @@ export function DialogoCerrarVersion({
             Volver
           </Button>
         </>
+      ) : entregables.length === 0 ? (
+        <>
+          <Alert variant="warning">
+            <p className="font-semibold">Todavía no hay entregables</p>
+            <p className="mt-1">
+              Cada versión cerrada corresponde a un entregable del proyecto.{" "}
+              {esDueno
+                ? "Creá uno en “Información del proyecto” y volvé a cerrar la versión."
+                : "Pedile al dueño del proyecto que cree uno en “Información del proyecto”."}
+            </p>
+          </Alert>
+          <Button type="button" variant="outline" className="self-end" onClick={onCerrar}>
+            Volver
+          </Button>
+        </>
       ) : (
         <form onSubmit={enviar} className="flex flex-col gap-4" noValidate>
           <fieldset className="flex gap-3">
@@ -99,6 +129,24 @@ export function DialogoCerrarVersion({
             {campoNumero("numeroBuild", "Build")}
             {campoNumero("numeroPatch", "Patch")}
           </fieldset>
+          <div>
+            <label htmlFor="cerrar-entregable" className="mb-2 block text-sm font-medium">
+              Entregable al que corresponde
+            </label>
+            <select
+              id="cerrar-entregable"
+              value={entregableId}
+              onChange={(e) => setEntregableId(e.target.value)}
+              className="h-10 w-full rounded-[var(--radius)] border border-input bg-card px-3 text-sm"
+            >
+              <option value="">Elegí un entregable…</option>
+              {entregables.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.nombre} · estimado {formatearFecha(e.fechaEstimada)} · {etiquetaEstadoEntregable[estadoEntregable(e, hoy)]}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label htmlFor="cerrar-nombre" className="mb-2 block text-sm font-medium">
               Nombre (opcional)

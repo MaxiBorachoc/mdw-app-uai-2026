@@ -34,7 +34,20 @@ export async function POST(request: Request, { params }: Contexto) {
     const nueva = resultado.data;
 
     const cierre = await cerrarVersionEnDesarrollo(id, nueva);
-    if (!cierre.ok) return respuestaConflicto(cierre.veredicto, nueva);
+    if (!cierre.ok) {
+      if ("entregable" in cierre) {
+        return NextResponse.json(
+          cierre.entregable === "SIN_ENTREGABLES"
+            ? {
+                error: "El proyecto todavía no tiene entregables: el dueño tiene que crear uno antes de cerrar la versión",
+                codigo: "SIN_ENTREGABLES",
+              }
+            : { error: "El entregable elegido no existe en este proyecto", codigo: "ENTREGABLE_INEXISTENTE" },
+          { status: 409 },
+        );
+      }
+      return respuestaConflicto(cierre.veredicto, nueva);
+    }
 
     return NextResponse.json({ cerrada: cierre.cerrada, siguiente: cierre.siguiente });
   } catch (error) {

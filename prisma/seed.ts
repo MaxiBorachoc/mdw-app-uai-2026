@@ -35,6 +35,11 @@ async function main() {
       id: "proyecto-ejemplo",
       nombre: "Proyecto de ejemplo",
       descripcion: "Datos de ejemplo para probar el sistema.",
+      problemaNegocio: "La documentación del equipo se pierde o se pisa entre una entrega y la siguiente.",
+      objetivo: "Tener la documentación de cada entrega versionada y consultable.",
+      limitesExclusiones: ["No incluye la gestión del código fuente."],
+      fechaInicio: new Date("2026-08-10T00:00:00Z"),
+      fechaFinEstimada: new Date("2026-11-24T00:00:00Z"),
       ownerId: admin.id,
       miembros: {
         connectOrCreate: {
@@ -42,6 +47,29 @@ async function main() {
           create: { usuarioId: admin.id, rol: "OWNER", estado: "ACEPTADA" },
         },
       },
+    },
+  });
+
+  // H14: dos entregables planificados; la versión 1.0.0 corresponde al primero.
+  const entregable1 = await prisma.entregable.upsert({
+    where: { id: "entregable-ejemplo-1" },
+    update: {},
+    create: {
+      id: "entregable-ejemplo-1",
+      nombre: "Primera entrega",
+      descripcion: "Historias y diagrama del proceso principal.",
+      fechaEstimada: new Date("2026-11-17T00:00:00Z"),
+      proyectoId: proyecto.id,
+    },
+  });
+  await prisma.entregable.upsert({
+    where: { id: "entregable-ejemplo-2" },
+    update: {},
+    create: {
+      id: "entregable-ejemplo-2",
+      nombre: "Entrega final",
+      fechaEstimada: new Date("2026-11-24T00:00:00Z"),
+      proyectoId: proyecto.id,
     },
   });
 
@@ -58,6 +86,7 @@ async function main() {
       nombre: "Primera versión de ejemplo",
       descripcion: "Cierre de ejemplo para probar la consulta de una versión cerrada.",
       cerradaEl: new Date(),
+      entregableId: entregable1.id,
       proyectoId: proyecto.id,
     },
   });

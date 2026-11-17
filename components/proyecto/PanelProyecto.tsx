@@ -1,46 +1,51 @@
 /**
- * Lo que se ve al entrar a un proyecto, antes de elegir un elemento: sus datos,
- * y los colaboradores aceptados.
+ * Lo que se ve al entrar a un proyecto, antes de elegir un elemento: su
+ * definición (H13), sus entregables (H14), cómo documentar y los colaboradores
+ * aceptados. La definición y los entregables los edita solo el dueño, y nunca
+ * parado en una versión cerrada (toda esa pantalla es de solo lectura).
  */
 import type { RolProyecto } from "@prisma/client";
+import { DefinicionProyecto } from "@/components/proyecto/DefinicionProyecto";
+import { EntregablesProyecto } from "@/components/proyecto/EntregablesProyecto";
 import { RolProyectoBadge } from "@/components/RolProyecto";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-const formatoFecha = new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeZone: "America/Argentina/Buenos_Aires" });
+import type { EntregableVista } from "@/lib/schemas/entregable";
+import type { DefinicionProyecto as Definicion } from "@/lib/schemas/proyecto";
 
 export function PanelProyecto({
-  descripcion,
+  proyectoId,
+  definicion,
   ownerNombre,
   creadoEn,
   miembros,
+  entregables,
+  hoy,
+  puedeEditarProyecto,
   puedeEditar,
 }: {
-  descripcion: string;
+  proyectoId: string;
+  definicion: Definicion;
   ownerNombre: string;
   creadoEn: string;
   miembros: { id: string; nombre: string; email: string; rol: RolProyecto }[];
+  entregables: EntregableVista[];
+  hoy: string;
+  // El dueño, fuera de una versión cerrada: definición y entregables.
+  puedeEditarProyecto: boolean;
+  // Dueño o editor, fuera de una versión cerrada: la documentación.
   puedeEditar: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Información del proyecto</CardTitle>
-          <CardDescription>{descripcion || "Este proyecto todavía no tiene una descripción."}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid gap-4 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="font-medium text-muted-foreground">Propietario</dt>
-              <dd className="mt-1 font-medium">{ownerNombre}</dd>
-            </div>
-            <div>
-              <dt className="font-medium text-muted-foreground">Creado</dt>
-              <dd className="mt-1 font-medium">{formatoFecha.format(new Date(creadoEn))}</dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
+      <DefinicionProyecto
+        proyectoId={proyectoId}
+        definicion={definicion}
+        ownerNombre={ownerNombre}
+        creadoEn={creadoEn}
+        puedeEditar={puedeEditarProyecto}
+      />
+
+      <EntregablesProyecto proyectoId={proyectoId} entregables={entregables} hoy={hoy} puedeEditar={puedeEditarProyecto} />
 
       {puedeEditar && (
         <Card>
@@ -53,7 +58,10 @@ export function PanelProyecto({
               <li>Creá un diagrama con “Nuevo diagrama” y agregale actividades conectadas con flechas.</li>
               <li>Asociá cada actividad a las historias que implementa.</li>
               <li>Tocá “Confirmar cambios” para guardar: cada elemento modificado suma una versión.</li>
-              <li>Antes de una entrega, cerrá la versión en desarrollo desde el selector de versión.</li>
+              <li>
+                Cuando la documentación de un entregable está lista, cerrá la versión en desarrollo desde el selector de versión
+                y elegí a qué entregable corresponde.
+              </li>
             </ol>
           </CardContent>
         </Card>

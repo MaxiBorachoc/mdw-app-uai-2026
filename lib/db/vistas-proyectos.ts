@@ -5,6 +5,7 @@
  * toda consulta queda acotada por el id del usuario autenticado.
  */
 import { prisma } from "@/lib/db/client";
+import { conFechasDeTexto, selectDefinicion } from "@/lib/db/proyectos";
 
 const LIMITE_PROYECTOS = 50;
 
@@ -49,7 +50,7 @@ export async function listarProyectosParaVista(usuarioId: string) {
 }
 
 export async function obtenerProyectoParaVista(id: string, usuarioId: string) {
-  return prisma.proyecto.findFirst({
+  const proyecto = await prisma.proyecto.findFirst({
     where: {
       id,
       miembros: {
@@ -61,6 +62,7 @@ export async function obtenerProyectoParaVista(id: string, usuarioId: string) {
       nombre: true,
       descripcion: true,
       creadoEn: true,
+      ...selectDefinicion,
       owner: { select: { id: true, nombre: true } },
       miembros: {
         where: { estado: "ACEPTADA" },
@@ -79,4 +81,5 @@ export async function obtenerProyectoParaVista(id: string, usuarioId: string) {
       },
     },
   });
+  return proyecto && conFechasDeTexto(proyecto);
 }

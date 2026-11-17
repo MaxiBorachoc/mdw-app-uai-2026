@@ -65,6 +65,9 @@ export const cerrarVersionProyectoSchema = z
     numeroPatch: numeroEntero,
     nombre: nombreVersion.optional(),
     descripcion: descripcionVersion.optional(),
+    // H8: todo cierre corresponde a un entregable del proyecto (que exista y sea
+    // del mismo proyecto lo controla lib/db/versiones.ts).
+    entregableId: z.string({ required_error: "Elegí el entregable al que corresponde la versión" }).min(1, "Elegí el entregable al que corresponde la versión"),
   })
   .refine((datos) => datos.numeroVersion > 0 || datos.numeroBuild > 0 || datos.numeroPatch > 0, {
     message: "La combinación 0.0.0 no es válida",

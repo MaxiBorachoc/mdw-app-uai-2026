@@ -7,7 +7,7 @@
  * ni modificarian el proyecto de otro.
  */
 import { NextResponse } from "next/server";
-import { crearProyectoSchema } from "@/lib/schemas/proyecto";
+import { definicionProyectoSchema } from "@/lib/schemas/proyecto";
 import {
   actualizarProyectoDeOwner,
   eliminarProyectoDeOwner,
@@ -41,12 +41,13 @@ export async function GET(_request: Request, { params }: Contexto) {
 export async function PUT(request: Request, { params }: Contexto) {
   try {
     const { id } = await params;
-    // H1: solo el owner puede editar nombre y descripcion del proyecto.
+    // H1 y H13: solo el owner edita nombre, descripcion y definicion del proyecto.
+    // Es un reemplazo completo: los campos opcionales que no vienen quedan vacios.
     const acceso = await requerirAccesoAProyecto(id, ["OWNER"]);
     if (!acceso) return proyectoNoEncontrado();
 
     const body: unknown = await request.json().catch(() => null);
-    const resultado = crearProyectoSchema.safeParse(body);
+    const resultado = definicionProyectoSchema.safeParse(body);
     if (!resultado.success) {
       return NextResponse.json(
         { error: "Datos inválidos", detalles: resultado.error.flatten() },

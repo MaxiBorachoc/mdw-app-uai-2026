@@ -25,10 +25,13 @@ export type ResultadoCierre =
         nombre: string | null;
         descripcion: string | null;
         cerradaEl: Date | null;
+        entregable: { id: string; nombre: string } | null;
       };
       siguiente: { id: string; orden: number; estado: string };
     }
-  | { ok: false; veredicto: Extract<VeredictoCierre, { ok: false }> };
+  | { ok: false; veredicto: Extract<VeredictoCierre, { ok: false }> }
+  // H8: el proyecto no tiene entregables, o el elegido no existe en este proyecto.
+  | { ok: false; entregable: "SIN_ENTREGABLES" | "INEXISTENTE" };
 
 /**
  * Cierra el build en desarrollo y abre el siguiente, todo en una transaccion que
@@ -57,6 +60,14 @@ export async function cerrarVersionEnDesarrollo(
       }
       if (!build) throw new Error("No se pudo abrir el build en desarrollo");
 
+      // H8: todo cierre corresponde a un entregable del mismo proyecto.
+      const [entregables, elegido] = await Promise.all([
+        tx.entregable.count({ where: { proyectoId } }),
+        tx.entregable.findFirst({ where: { id: datos.entregableId, proyectoId }, select: { id: true } }),
+      ]);
+      if (entregables === 0) return { ok: false as const, entregable: "SIN_ENTREGABLES" as const };
+      if (!elegido) return { ok: false as const, entregable: "INEXISTENTE" as const };
+
       const [cerradas, cambios] = await Promise.all([
         listarVersionesCerradas(proyectoId, tx),
         contarRevisionesDelBuild(build.id, tx),
@@ -74,6 +85,7 @@ export async function cerrarVersionEnDesarrollo(
           nombre: datos.nombre || null,
           descripcion: datos.descripcion || null,
           cerradaEl: new Date(),
+          entregableId: elegido.id,
         },
         select: {
           id: true,
@@ -85,6 +97,7 @@ export async function cerrarVersionEnDesarrollo(
           nombre: true,
           descripcion: true,
           cerradaEl: true,
+          entregable: { select: { id: true, nombre: true } },
         },
       });
       const siguiente = await tx.versionProyecto.create({
@@ -98,6 +111,10 @@ export async function cerrarVersionEnDesarrollo(
     // repetida aunque la regla de arriba se haya saltado de algun modo.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { ok: false, veredicto: { ok: false, motivo: "DUPLICADA", version: datos } };
+    }
+    // El entregable se borro entre el chequeo y el cierre: la clave foranea lo rechaza.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return { ok: false, entregable: "INEXISTENTE" };
     }
     throw error;
   }

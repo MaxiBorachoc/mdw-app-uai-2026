@@ -12,14 +12,18 @@ los de validación (400) agregan `"detalles"` con el detalle de Zod y los confli
 | GET | `/api/proyectos` | Lista los proyectos del usuario | Cualquier usuario con sesión |
 | POST | `/api/proyectos` | Crea un proyecto y deja al usuario como `OWNER` (H1) | Cualquier usuario con sesión |
 | GET | `/api/proyectos/:id` | Devuelve un proyecto con su owner y miembros | Miembro del proyecto (cualquier rol) |
-| PUT | `/api/proyectos/:id` | Edita nombre y descripción (H1) | `OWNER` |
+| PUT | `/api/proyectos/:id` | Reemplaza nombre, descripción y definición del proyecto (H1, H13) | `OWNER` |
 | DELETE | `/api/proyectos/:id` | Elimina el proyecto y todo su contenido en cascada (H1) | `OWNER` |
 | GET | `/api/proyectos/:id/documentacion` | Historias, actividades y flechas vigentes de un build; `?build=<n>` para uno cerrado (H9) | Miembro del proyecto (cualquier rol) |
 | POST | `/api/proyectos/:id/cambios` | Confirma un borrador: una versión nueva por elemento modificado (H3–H7, H10, H12) | `OWNER` o `EDITOR` |
 | GET | `/api/proyectos/:id/cambios?desde=<fecha>` | Lo que otros usuarios confirmaron después de esa fecha (H12) | Miembro del proyecto (cualquier rol) |
 | GET | `/api/proyectos/:id/historias/:historiaId/revisiones` | Historial de versiones de una historia (H4) | Miembro del proyecto (cualquier rol) |
 | GET | `/api/proyectos/:id/actividades/:actividadId/revisiones` | Historial de versiones de una actividad (H6) | Miembro del proyecto (cualquier rol) |
-| POST | `/api/proyectos/:id/cerrar-version` | Cierra la versión en desarrollo y abre la siguiente (H8) | `OWNER` o `EDITOR` |
+| POST | `/api/proyectos/:id/cerrar-version` | Cierra la versión en desarrollo, vinculada a un entregable, y abre la siguiente (H8) | `OWNER` o `EDITOR` |
+| GET | `/api/proyectos/:id/entregables` | Lista los entregables con las versiones cerradas de cada uno (H14) | Miembro del proyecto (cualquier rol) |
+| POST | `/api/proyectos/:id/entregables` | Crea un entregable (H14) | `OWNER` |
+| PUT | `/api/proyectos/:id/entregables/:entregableId` | Edita un entregable, incluido marcarlo como entregado (H14) | `OWNER` |
+| DELETE | `/api/proyectos/:id/entregables/:entregableId` | Elimina un entregable sin versiones cerradas (H14) | `OWNER` |
 | GET | `/api/proyectos/:id/miembros` | Lista los colaboradores del proyecto con su rol (H2) | Miembro del proyecto (cualquier rol) |
 | POST | `/api/proyectos/:id/miembros` | Agrega un colaborador por email con rol `EDITOR` o `READER` (H2) | `OWNER` |
 | PATCH | `/api/proyectos/:id/miembros/:usuarioId` | Cambia el rol de un colaborador con invitación aceptada (H2) | `OWNER` |
@@ -42,14 +46,17 @@ todo endpoint que no sea `aceptar`/`rechazar`: ver `docs/spec.md` H2.
 
 - `GET /api/proyectos` → `200`, arreglo (máx. 50) de `{ id, nombre, descripcion, creadoEn, owner: { id, nombre } }`.
 - `POST /api/proyectos` → `201`, `{ id, nombre, descripcion, creadoEn, ownerId }`. Body: `{ nombre: string (obligatorio), descripcion?: string }`.
-- `GET /api/proyectos/:id` → `200`, `{ id, nombre, descripcion, creadoEn, owner, miembros: [{ id, rol, usuario: { id, nombre, email } }] }`.
-- `PUT /api/proyectos/:id` → `200`, el proyecto actualizado. Mismo body que la creación.
+- `GET /api/proyectos/:id` → `200`, `{ id, nombre, descripcion, creadoEn, problemaNegocio, objetivo, limitesExclusiones, fechaInicio, fechaFinEstimada, owner, miembros: [{ id, rol, usuario: { id, nombre, email } }] }`. Las fechas de la definición son `"AAAA-MM-DD"` o `null`.
+- `PUT /api/proyectos/:id` → `200`, el proyecto actualizado con su definición. Body: `{ nombre: string (obligatorio), descripcion?: string, problemaNegocio?: string, objetivo?: string, limitesExclusiones?: string[], fechaInicio?: "AAAA-MM-DD" | null, fechaFinEstimada?: "AAAA-MM-DD" | null }`. Es un **reemplazo completo**: los campos opcionales que no vienen quedan vacíos. La definición no se versiona (spec H13). `limitesExclusiones` no tiene límite de cantidad en la spec; el servidor corta en 1000 solo como protección técnica.
 - `DELETE /api/proyectos/:id` → `204` sin cuerpo. Borra en cascada miembros, historias, actividades, conexiones y versiones (incluidas las cerradas, ver spec sección 3). La doble confirmación es responsabilidad de la UI.
 - `GET /api/proyectos/:id/documentacion[?build=<n>]` → `200`, `{ build: { id, orden, estado, numeroVersion, numeroBuild, numeroPatch, nombre, descripcion, cerradaEl }, historias, actividades, conexiones }`. `n` es el `orden` del build (1, 2, 3… dentro del proyecto); sin `build` devuelve el build en desarrollo. Cada elemento trae `id`, `numeroVersion` (su versión vigente en ese build) y sus datos: historia `{ titulo, descripcion, criteriosAceptacion }`, actividad `{ nombre, documentacion, padreId, posicionX, posicionY, historiaIds }` (`padreId: null` = diagrama), flecha `{ origenId, destinoId }`. Solo vienen los elementos vigentes: los eliminados, y lo que depende de ellos, no aparecen (spec sección 3).
 - `POST /api/proyectos/:id/cambios` → `200`, `{ revisiones: number, ids: { "<id temporal>": "<id definitivo>" } }`. Body: `{ historias: [], actividades: [], conexiones: [] }` (máx. 2000 por lista); cada elemento trae el estado completo que se quiere para él más `{ id, base, eliminado }`. `base` es la versión del elemento sobre la que se editó, o `null` si se creó en el borrador; en ese caso `id` es temporal y empieza con `nuevo-` (otros elementos del mismo body pueden referirse a él). Todo se escribe en una sola transacción: o entran todos los cambios o ninguno. Un elemento igual a su versión vigente no genera versión nueva.
 - `GET /api/proyectos/:id/cambios?desde=<fecha ISO>` → `200`, `{ cambios: [{ tipo: "HISTORIA" | "ACTIVIDAD" | "CONEXION", elementoId, numeroVersion, actividadId, nombre, accion: "CREO" | "MODIFICO" | "ELIMINO", autor: { id, nombre }, creadoEn }], ahora }`. No incluye los cambios de quien pregunta. Una flecha se informa con el nombre de la actividad cuyo diagrama la contiene. `ahora` es la hora de la base: el cliente la usa como próximo `desde`.
 - `GET /api/proyectos/:id/historias/:historiaId/revisiones` y `GET .../actividades/:actividadId/revisiones` → `200`, arreglo (máx. 500, de la más nueva a la más vieja) con los datos de cada versión más `{ numeroVersion, eliminado, creadoEn, autor: { id, nombre }, build }`; `build` es `"En desarrollo"` o el número `X.Y.Z` de la versión cerrada que la incluye.
-- `POST /api/proyectos/:id/cerrar-version` → `200`, `{ cerrada: { id, estado, numeroVersion, numeroBuild, numeroPatch, nombre, descripcion, cerradaEl }, siguiente: { id, orden, estado } }`. Body: `{ numeroVersion: int >= 0, numeroBuild: int >= 0, numeroPatch: int >= 0, nombre?: string, descripcion?: string }`.
+- `POST /api/proyectos/:id/cerrar-version` → `200`, `{ cerrada: { id, estado, numeroVersion, numeroBuild, numeroPatch, nombre, descripcion, cerradaEl }, siguiente: { id, orden, estado } }`; `cerrada` incluye además `entregable: { id, nombre }`. Body: `{ numeroVersion: int >= 0, numeroBuild: int >= 0, numeroPatch: int >= 0, nombre?: string, descripcion?: string, entregableId: string }`.
+- `GET /api/proyectos/:id/entregables` → `200`, arreglo (máx. 500, por fecha estimada) de `{ id, nombre, descripcion, fechaEstimada, entregado, fechaEntrega, versiones: [{ orden, etiqueta }] }`. Fechas `"AAAA-MM-DD"`; `versiones` son los builds cerrados que apuntan al entregable. El estado (pendiente, atrasado…) no viene: lo calcula la pantalla con la fecha de hoy (spec sección 6).
+- `POST /api/proyectos/:id/entregables` → `201`, el entregable creado. `PUT .../entregables/:entregableId` → `200`, el entregable actualizado. Body de ambos: `{ nombre: string, descripcion?: string, fechaEstimada: "AAAA-MM-DD", entregado?: boolean, fechaEntrega?: "AAAA-MM-DD" | null }`. Si `entregado` es `false`, la fecha de entrega se guarda vacía.
+- `DELETE /api/proyectos/:id/entregables/:entregableId` → `204` sin cuerpo.
 
 - `GET /api/proyectos/:id/miembros` → `200`, arreglo (máx. 200) de `{ rol, estado, creadoEn, usuario: { id, nombre, email } }`. Si quien pide no es `OWNER`, la lista solo trae colaboradores en estado `ACEPTADA` (H2: los pendientes y rechazados solo los ve el dueño).
 - `POST /api/proyectos/:id/miembros` → `201`, `{ rol, estado: "PENDIENTE", creadoEn, usuario }`. Body: `{ email: string, rol: "EDITOR" | "READER" }`. El email se compara sin distinguir mayúsculas. Dispara el correo de invitación (accesorio, ver sección de correos más abajo).
@@ -104,6 +111,14 @@ queda en el log del servidor.
 | GET `.../documentacion` | No hay un build con ese número en el proyecto | 404 | `Versión no encontrada` | H9 |
 | GET `.../cambios` | `desde` falta o no es una fecha ISO | 400 | `Datos inválidos` + `detalles` | H12 |
 | GET `.../revisiones` | La historia o actividad no existe en ese proyecto | 404 | `Historia no encontrada` / `Actividad no encontrada` | H4, H6 |
+| PUT `/api/proyectos/:id` | La fecha estimada de fin es anterior a la de inicio, una fecha no existe, un límite está vacío, o un campo supera su largo máximo | 400 | `Datos inválidos` + `detalles` de Zod por campo | H13 |
+| POST `.../cerrar-version` | Falta `entregableId` | 400 | `Elegí el entregable al que corresponde la versión` (en `detalles.fieldErrors.entregableId`) | H8 |
+| POST `.../cerrar-version` | El proyecto no tiene ningún entregable | 409 | `El proyecto todavía no tiene entregables: el dueño tiene que crear uno antes de cerrar la versión` + `codigo: "SIN_ENTREGABLES"` | H8, caso de error |
+| POST `.../cerrar-version` | El entregable no existe en ese proyecto | 409 | `El entregable elegido no existe en este proyecto` + `codigo: "ENTREGABLE_INEXISTENTE"` | H8, caso de error |
+| POST/PUT/DELETE `.../entregables` | Es miembro pero no `OWNER` | 403 | `Tu rol en este proyecto no permite esta operación` | H14 |
+| POST/PUT `.../entregables` | Falta el nombre o la fecha estimada, un dato supera su largo, está entregado sin fecha de entrega, o la fecha de entrega es posterior a hoy | 400 | `Datos inválidos` + `detalles` de Zod por campo | H14 |
+| PUT/DELETE `.../entregables/:entregableId` | El entregable no existe en ese proyecto | 404 | `Entregable no encontrado` | H14 |
+| DELETE `.../entregables/:entregableId` | Lo referencia alguna versión cerrada | 409 | `No se puede eliminar: lo referencian las versiones X.Y.Z` + `codigo: "ENTREGABLE_CON_VERSIONES"` y `versiones` | H14, caso de error |
 | POST `.../miembros` | El email no es válido, o el rol no es `EDITOR`/`READER` | 400 | Mensaje de Zod por campo (en `detalles.fieldErrors`) | H2 (solo se asignan editor y reader) |
 | POST `.../miembros` | No hay ningún usuario con ese email | 409 | `Se ingresó un usuario inexistente` + `codigo: "USUARIO_INEXISTENTE"` | H2, caso de error |
 | POST `.../miembros` | El email es el del owner | 409 | `El owner del proyecto no puede agregarse como colaborador` + `codigo: "ES_OWNER"` | H2, caso de error |
