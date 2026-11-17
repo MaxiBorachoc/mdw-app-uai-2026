@@ -15,11 +15,5 @@ export type RolProyecto = z.infer<typeof RolProyectoSchema>;
 export const EstadoInvitacionSchema = z.enum(["PENDIENTE", "ACEPTADA", "RECHAZADA"]);
 export type EstadoInvitacion = z.infer<typeof EstadoInvitacionSchema>;
 
-export const EstadoActividadSchema = z.enum(["PENDIENTE", "EN_PROGRESO", "COMPLETADA"]);
-export type EstadoActividad = z.infer<typeof EstadoActividadSchema>;
-
 export const EstadoVersionProyectoSchema = z.enum(["EN_DESARROLLO", "CERRADA"]);
 export type EstadoVersionProyecto = z.infer<typeof EstadoVersionProyectoSchema>;
-
-export const TipoVersionProyectoItemSchema = z.enum(["HISTORIA", "ACTIVIDAD"]);
-export type TipoVersionProyectoItem = z.infer<typeof TipoVersionProyectoItemSchema>;

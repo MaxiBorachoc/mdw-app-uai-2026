@@ -109,9 +109,109 @@ Content-Type: application/json
 
 { "nombre": "Intento ajeno" }
 
+# ---------- GET /api/proyectos/:id/documentacion ----------
+
+### 200 feliz (build en desarrollo)
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/documentacion
+Cookie: {{sesion}}
+
+### 200 feliz (build cerrado: el primero del proyecto)
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/documentacion?build=1
+Cookie: {{sesion}}
+
+### 400 build no es un entero positivo
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/documentacion?build=abc
+Cookie: {{sesion}}
+
+### 404 no hay un build con ese número
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/documentacion?build=999
+Cookie: {{sesion}}
+
+### 404 no soy miembro / no existe
+GET {{baseUrl}}/api/proyectos/{{proyectoAjenoId}}/documentacion
+Cookie: {{sesion}}
+
+# ---------- POST /api/proyectos/:id/cambios ----------
+# Para editar un elemento existente: copiar su estado de "documentacion" y mandar
+# `base` = su numeroVersion. Los elementos nuevos usan base null y un id "nuevo-...".
+
+### 200 feliz: crea una historia, un diagrama con una actividad asociada a ella y una flecha de la actividad hacia sí misma
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cambios
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{
+  "historias": [{ "id": "nuevo-h1", "base": null, "eliminado": false, "titulo": "Cobrar al cliente", "descripcion": "Como cajero quiero cobrar, para cerrar la venta.", "criteriosAceptacion": ["Se registra el pago"] }],
+  "actividades": [
+    { "id": "nuevo-d1", "base": null, "eliminado": false, "nombre": "Proceso de venta", "documentacion": "", "padreId": null, "posicionX": null, "posicionY": null, "historiaIds": [] },
+    { "id": "nuevo-a1", "base": null, "eliminado": false, "nombre": "Cobrar", "documentacion": "", "padreId": "nuevo-d1", "posicionX": 40, "posicionY": 40, "historiaIds": ["nuevo-h1"] }
+  ],
+  "conexiones": [{ "id": "nuevo-f1", "base": null, "eliminado": false, "origenId": "nuevo-a1", "destinoId": "nuevo-a1" }]
+}
+
+### 400 historia sin criterios de aceptación
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cambios
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "historias": [{ "id": "nuevo-h2", "base": null, "eliminado": false, "titulo": "Sin criterios", "descripcion": "Como x quiero y", "criteriosAceptacion": [] }], "actividades": [], "conexiones": [] }
+
+### 409 REGLA_DE_DOCUMENTACION: título repetido (después del 200 feliz)
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cambios
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "historias": [{ "id": "nuevo-h3", "base": null, "eliminado": false, "titulo": "  COBRAR al cliente ", "descripcion": "Como cajero quiero cobrar", "criteriosAceptacion": ["Se registra"] }], "actividades": [], "conexiones": [] }
+
+### 409 CONFLICTO_DE_EDICION: editar sobre una versión que ya no es la vigente
+# Poner el id de una historia que ya tenga versión 2 o más, con base 1.
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cambios
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "historias": [{ "id": "PEGAR_ID_HISTORIA", "base": 1, "eliminado": false, "titulo": "Título nuevo", "descripcion": "Como x quiero y", "criteriosAceptacion": ["z"] }], "actividades": [], "conexiones": [] }
+
+### 403 soy miembro pero solo lector
+POST {{baseUrl}}/api/proyectos/{{proyectoLectorId}}/cambios
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "historias": [], "actividades": [], "conexiones": [] }
+
+### 404 no soy miembro / no existe
+POST {{baseUrl}}/api/proyectos/{{proyectoAjenoId}}/cambios
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "historias": [], "actividades": [], "conexiones": [] }
+
+# ---------- GET /api/proyectos/:id/cambios?desde= ----------
+
+### 200 feliz (lo que otros confirmaron en la última hora; cambiar la fecha)
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/cambios?desde=2026-11-13T00:00:00.000Z
+Cookie: {{sesion}}
+
+### 400 desde no es una fecha
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/cambios?desde=ayer
+Cookie: {{sesion}}
+
+# ---------- GET .../historias/:historiaId/revisiones y .../actividades/:actividadId/revisiones ----------
+
+### 200 feliz (historial de una historia)
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/historias/PEGAR_ID_HISTORIA/revisiones
+Cookie: {{sesion}}
+
+### 200 feliz (historial de una actividad)
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/actividades/PEGAR_ID_ACTIVIDAD/revisiones
+Cookie: {{sesion}}
+
+### 404 la historia no es de este proyecto
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/historias/no-existe/revisiones
+Cookie: {{sesion}}
+
 # ---------- POST /api/proyectos/:id/cerrar-version ----------
 
-### 200 feliz (crea 1.0.0; correr una sola vez por proyecto)
+### 200 feliz (crea 1.0.0; correr una sola vez por proyecto, después de confirmar algún cambio)
 POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
 Cookie: {{sesion}}
 Content-Type: application/json

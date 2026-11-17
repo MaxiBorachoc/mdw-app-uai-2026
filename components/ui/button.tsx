@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-type VarianteBoton = "primary" | "secondary" | "outline" | "ghost" | "danger";
+type VarianteBoton = "primary" | "secondary" | "outline" | "ghost" | "danger" | "warning";
 type TamanoBoton = "sm" | "md";
 
 const variantes: Record<VarianteBoton, string> = {
@@ -10,6 +10,8 @@ const variantes: Record<VarianteBoton, string> = {
   outline: "border bg-card text-foreground hover:bg-muted",
   ghost: "text-foreground hover:bg-muted",
   danger: "bg-destructive text-white hover:bg-red-800",
+  // Aviso: el texto oscuro sobre ámbar supera 4,5:1 de contraste.
+  warning: "bg-amber-400 text-amber-950 hover:bg-amber-500",
 };
 
 const tamanos: Record<TamanoBoton, string> = {

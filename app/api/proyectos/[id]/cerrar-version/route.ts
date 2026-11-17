@@ -4,20 +4,13 @@
  * Es "la operacion del flujo principal que no es un ABM" (clase 4). Las tres
  * capas de la clase 5: Zod valida la forma (400), lib/versiones-proyecto.ts
  * decide si el negocio lo permite (409) y lib/db/versiones.ts lee y escribe.
+ * La regla se evalua dentro de la transaccion que bloquea el build en desarrollo,
+ * asi un cierre no se mezcla con una confirmacion de cambios ni con otro cierre.
  */
 import { NextResponse } from "next/server";
 import { cerrarVersionProyectoSchema } from "@/lib/schemas/versionProyecto";
-import {
-  cerrarVersionEnDesarrollo,
-  listarVersionesCerradas,
-  versionEnDesarrolloTieneCambios,
-} from "@/lib/db/versiones";
-import {
-  formatearVersion,
-  validarCierreDeVersion,
-  type NumeroVersion,
-  type VeredictoCierre,
-} from "@/lib/versiones-proyecto";
+import { cerrarVersionEnDesarrollo } from "@/lib/db/versiones";
+import { formatearVersion, type NumeroVersion, type VeredictoCierre } from "@/lib/versiones-proyecto";
 import { proyectoNoEncontrado, requerirAccesoAProyecto } from "@/lib/api/autorizar";
 import { responderError } from "@/lib/api/errores";
 
@@ -40,25 +33,8 @@ export async function POST(request: Request, { params }: Contexto) {
     }
     const nueva = resultado.data;
 
-    const [cerradas, tieneCambios] = await Promise.all([
-      listarVersionesCerradas(id),
-      versionEnDesarrolloTieneCambios(id),
-    ]);
-
-    const veredicto = validarCierreDeVersion(
-      nueva,
-      cerradas,
-      tieneCambios,
-    );
-    if (!veredicto.ok) {
-      return respuestaConflicto(veredicto, nueva);
-    }
-
     const cierre = await cerrarVersionEnDesarrollo(id, nueva);
-    if (!cierre.ok) {
-      // Otro cierre simultaneo tomo la misma combinacion entre el chequeo y la escritura.
-      return respuestaConflicto({ ok: false, motivo: "DUPLICADA", version: nueva }, nueva);
-    }
+    if (!cierre.ok) return respuestaConflicto(cierre.veredicto, nueva);
 
     return NextResponse.json({ cerrada: cierre.cerrada, siguiente: cierre.siguiente });
   } catch (error) {
