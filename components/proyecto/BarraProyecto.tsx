@@ -23,6 +23,8 @@ export type BuildResumen = {
   cerradaEl: string | null;
   // H8: el entregable al que corresponde (solo las cerradas).
   entregable: string | null;
+  // H15: el build en desarrollo tiene cambios confirmados (finalizar pide cerrarlo).
+  tieneCambios: boolean;
 };
 
 export type EstadoConfirmar = "sin-cambios" | "con-cambios" | "conflicto";
@@ -36,12 +38,15 @@ export function BarraProyecto({
   builds,
   buildVisto,
   puedeEditar,
+  finalizado,
+  vistaActual,
   estadoConfirmar,
   confirmando,
   cambiosDeOtros,
   onNavegar,
   onAbrirCierre,
   onVerCambios,
+  onAbrirElementos,
   onConfirmar,
   onDescartar,
 }: {
@@ -51,6 +56,10 @@ export function BarraProyecto({
   builds: BuildResumen[];
   buildVisto: BuildResumen;
   puedeEditar: boolean;
+  // H15: el proyecto no tiene build en desarrollo.
+  finalizado: boolean;
+  // Se está mirando la versión actual (sin ?build): la en desarrollo o, si está finalizado, la última cerrada.
+  vistaActual: boolean;
   estadoConfirmar: EstadoConfirmar;
   confirmando: boolean;
   cambiosDeOtros: number;
@@ -58,6 +67,8 @@ export function BarraProyecto({
   onNavegar: () => boolean;
   onAbrirCierre: () => void;
   onVerCambios: () => void;
+  // H11: abre la barra lateral en pantallas angostas.
+  onAbrirElementos: () => void;
   onConfirmar: () => void;
   onDescartar: () => void;
 }) {
@@ -66,7 +77,7 @@ export function BarraProyecto({
 
   return (
     <div className="sticky top-0 z-10 border-b bg-background/95 py-3 backdrop-blur">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <Link href="/proyectos" className="text-sm font-medium text-primary hover:underline" onClick={(e) => !onNavegar() && e.preventDefault()}>
             ← Proyectos
@@ -79,6 +90,11 @@ export function BarraProyecto({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Solo en pantallas angostas: ahí la barra lateral no está a la vista. */}
+          <Button type="button" variant="outline" size="sm" className="md:hidden" onClick={onAbrirElementos}>
+            <span aria-hidden="true">☰</span> Elementos
+          </Button>
+
           {cambiosDeOtros > 0 && (
             <Button type="button" variant="outline" size="sm" onClick={onVerCambios}>
               Cambios de otros usuarios
@@ -127,9 +143,12 @@ export function BarraProyecto({
           </details>
 
           {cerrada ? (
-            <Link href={`/proyectos/${proyectoId}`} className={buttonStyles({ size: "sm" })}>
-              Volver a la versión actual
-            </Link>
+            // En un proyecto finalizado, la versión actual es la última cerrada (H15).
+            !vistaActual && (
+              <Link href={`/proyectos/${proyectoId}`} className={buttonStyles({ size: "sm" })}>
+                Volver a la versión actual
+              </Link>
+            )
           ) : (
             puedeEditar && (
               <>
@@ -165,10 +184,12 @@ export function BarraProyecto({
 
       {cerrada && (
         <p className="mt-2 text-sm text-muted-foreground">
+          {finalizado && <strong className="font-semibold text-foreground">El proyecto está finalizado. </strong>}
           Estás viendo la versión {buildVisto.etiqueta}
           {buildVisto.nombre ? ` (${buildVisto.nombre})` : ""}
           {buildVisto.cerradaEl ? `, cerrada el ${formatoFecha.format(new Date(buildVisto.cerradaEl))}` : ""}
-          {buildVisto.entregable ? `, del entregable “${buildVisto.entregable}”` : ""}. Todo está en solo lectura.
+          {buildVisto.entregable ? `, del entregable “${buildVisto.entregable}”` : ""}.
+          {finalizado && vistaActual ? " La documentación está en solo lectura." : " Todo está en solo lectura."}
           {buildVisto.descripcion ? ` ${buildVisto.descripcion}` : ""}
         </p>
       )}

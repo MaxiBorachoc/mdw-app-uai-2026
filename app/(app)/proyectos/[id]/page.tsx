@@ -45,6 +45,7 @@ export default async function ProyectoPage({ params, searchParams }: Contexto) {
       descripcion: b.descripcion,
       cerradaEl: b.cerradaEl?.toISOString() ?? null,
       entregable: b.entregable?.nombre ?? null,
+      tieneCambios: b._count.historiaRevisiones + b._count.actividadRevisiones + b._count.conexionRevisiones > 0,
     }),
   );
 
@@ -67,7 +68,7 @@ export default async function ProyectoPage({ params, searchParams }: Contexto) {
       <EspacioProyecto
         // Cambiar de build arma el espacio de cero (otro borrador, otra selección).
         // El build en desarrollo usa siempre la misma clave: al cerrar una versión se
-        // abre otro, y el aviso de "Versión cerrada" no tiene que perderse.
+        // abre otro, y la selección y lo que se estaba mirando se conservan.
         key={visto.estado === "EN_DESARROLLO" ? "en-desarrollo" : visto.orden}
         proyecto={{
           id: proyecto.id,
@@ -91,6 +92,8 @@ export default async function ProyectoPage({ params, searchParams }: Contexto) {
         desde={desde.toISOString()}
         entregables={entregables}
         hoy={hoyEnArgentina()}
+        finalizado={proyecto.estado === "FINALIZADO"}
+        vistaActual={build === undefined || visto.estado === "EN_DESARROLLO"}
       />
     </>
   );

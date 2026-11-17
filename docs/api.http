@@ -216,6 +216,33 @@ Cookie: {{sesion}}
 GET {{baseUrl}}/api/proyectos/{{proyectoId}}/historias/no-existe/revisiones
 Cookie: {{sesion}}
 
+# ---------- Finalizar y reabrir el proyecto (H15) ----------
+
+### POST finalizar — 200 con el build en desarrollo vacío (o 409 CIERRE_REQUERIDO si tiene cambios)
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/finalizar
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{}
+
+### POST finalizar — 200 cerrando el build en desarrollo con cambios
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/finalizar
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "cierre": { "numeroVersion": 2, "numeroBuild": 0, "numeroPatch": 0, "nombre": "Versión final", "entregableId": "PEGAR_ID_ENTREGABLE" } }
+
+### POST finalizar — 403 soy miembro pero no owner
+POST {{baseUrl}}/api/proyectos/{{proyectoLectorId}}/finalizar
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{}
+
+### POST reabrir — 200 (409 PROYECTO_EN_PROCESO si no está finalizado)
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/reabrir
+Cookie: {{sesion}}
+
 # ---------- Entregables (H14) ----------
 
 ### GET entregables — 200 feliz

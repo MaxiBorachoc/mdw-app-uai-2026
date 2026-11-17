@@ -146,6 +146,8 @@ export async function listarBuilds(proyectoId: string) {
       descripcion: true,
       cerradaEl: true,
       entregable: { select: { id: true, nombre: true } },
+      // H15: si el build en desarrollo tiene cambios, finalizar pide cerrarlo.
+      _count: { select: { historiaRevisiones: true, actividadRevisiones: true, conexionRevisiones: true } },
     },
   });
 }
@@ -166,7 +168,9 @@ export async function bloquearBuildEnDesarrollo(tx: Prisma.TransactionClient, pr
 export type ResultadoConfirmarCambios =
   | { ok: true; revisiones: number; ids: Record<string, string> }
   | { ok: false; motivo: "CONFLICTO" | "INVALIDO"; elementos: ElementoConProblema[] }
-  | { ok: false; motivo: "SIN_BUILD" };
+  // Sin build en desarrollo: el proyecto fue finalizado (H15), o un dato viejo sin build.
+  | { ok: false; motivo: "SIN_BUILD" }
+  | { ok: false; motivo: "FINALIZADO" };
 
 /**
  * H12: escribe los cambios de un borrador como revisiones del build en desarrollo,
@@ -181,7 +185,10 @@ export async function confirmarCambios(
   return prisma.$transaction(
     async (tx) => {
       const build = await bloquearBuildEnDesarrollo(tx, proyectoId);
-      if (!build) return { ok: false, motivo: "SIN_BUILD" } as const;
+      if (!build) {
+        const proyecto = await tx.proyecto.findUnique({ where: { id: proyectoId }, select: { estado: true } });
+        return proyecto?.estado === "FINALIZADO" ? ({ ok: false, motivo: "FINALIZADO" } as const) : ({ ok: false, motivo: "SIN_BUILD" } as const);
+      }
 
       const actual = await cargarEstado(proyectoId, null, tx);
       const ids: Record<string, string> = {};

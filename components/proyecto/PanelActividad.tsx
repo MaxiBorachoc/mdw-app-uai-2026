@@ -9,7 +9,6 @@
 import { FormularioActividad } from "@/components/proyecto/FormularioActividad";
 import { HistorialRevisiones } from "@/components/proyecto/HistorialRevisiones";
 import { LienzoDiagrama, type FlechaLienzo, type NodoLienzo } from "@/components/proyecto/LienzoDiagrama";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Actividad } from "@/lib/documentacion";
@@ -94,7 +93,6 @@ export function PanelActividad({
               <p className="text-sm font-semibold text-primary">{esDiagrama ? "Diagrama" : "Diagrama interno de la actividad"}</p>
               <CardTitle className="break-words text-2xl">{a.nombre || "Sin nombre"}</CardTitle>
             </div>
-            <Badge variant="neutral">{abierta.nueva ? "Nueva, sin confirmar" : `Versión ${a.numeroVersion}`}</Badge>
           </div>
         </CardHeader>
         <CardContent>
@@ -132,9 +130,6 @@ export function PanelActividad({
                 </Button>
               </div>
             </div>
-            <CardDescription>
-              {nodoElegido.nueva ? "Nueva, sin confirmar." : `Versión ${nodoElegido.actividad.numeroVersion}.`}
-            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <FormularioActividad

@@ -17,11 +17,13 @@ import { BarraLateral, type Seleccion } from "@/components/proyecto/BarraLateral
 import { BarraProyecto, type BuildResumen, type EstadoConfirmar } from "@/components/proyecto/BarraProyecto";
 import { DialogoCambiosDeOtros, type CambioDeOtroVista } from "@/components/proyecto/DialogoCambiosDeOtros";
 import { DialogoCerrarVersion } from "@/components/proyecto/DialogoCerrarVersion";
+import { DialogoColaboradores } from "@/components/proyecto/DialogoColaboradores";
 import { lugarLibre } from "@/components/proyecto/LienzoDiagrama";
 import { PanelActividad } from "@/components/proyecto/PanelActividad";
 import { PanelHistoria } from "@/components/proyecto/PanelHistoria";
 import { PanelProyecto } from "@/components/proyecto/PanelProyecto";
 import { Alert } from "@/components/ui/alert";
+import { HojaLateral } from "@/components/ui/hoja-lateral";
 import { Button } from "@/components/ui/button";
 import {
   alcanceDeEliminacion,
@@ -64,7 +66,7 @@ const CONSULTA_CADA_MS = 5_000;
 // fecha anterior a la última consulta. Lo repetido se descarta por elemento+versión.
 const SOLAPAMIENTO_MS = 30_000;
 
-type Mensaje = { variante: "info" | "success" | "warning" | "error"; titulo: string; lineas: string[]; actualizar?: boolean };
+type Mensaje = { variante: "info" | "warning" | "error"; titulo: string; lineas: string[]; actualizar?: boolean };
 
 const tipoTexto: Record<ElementoConProblema["tipo"], string> = { HISTORIA: "Historia", ACTIVIDAD: "Actividad", CONEXION: "Flecha" };
 
@@ -78,6 +80,8 @@ export function EspacioProyecto({
   desde,
   entregables,
   hoy,
+  finalizado,
+  vistaActual,
 }: {
   proyecto: { id: string; ownerNombre: string; creadoEn: string; definicion: DefinicionProyecto };
   miembros: { id: string; nombre: string; email: string; rol: RolProyecto }[];
@@ -89,12 +93,17 @@ export function EspacioProyecto({
   entregables: EntregableVista[];
   // La fecha de hoy en Argentina, calculada en el servidor (estado de los entregables).
   hoy: string;
+  // H15: el proyecto no tiene build en desarrollo; la versión actual es la última cerrada.
+  finalizado: boolean;
+  // Se mira la versión actual (sin ?build), no una versión cerrada elegida en el selector.
+  vistaActual: boolean;
 }) {
   const router = useRouter();
   const cerrada = buildVisto.estado === "CERRADA";
   const puedeEditar = !cerrada && rol !== "READER";
-  // H13 y H14: la definición y los entregables los edita solo el dueño.
-  const puedeEditarProyecto = !cerrada && rol === "OWNER";
+  // H2, H13 y H14: colaboradores, definición y entregables los edita solo el dueño.
+  // En un proyecto finalizado el dueño los sigue editando desde la versión actual (H15).
+  const puedeEditarProyecto = vistaActual && rol === "OWNER";
 
   const [borrador, setBorrador] = useState<Borrador>(() => crearBorrador(estado));
   const [seleccion, setSeleccion] = useState<Seleccion>({ tipo: "proyecto" });
@@ -105,6 +114,11 @@ export function EspacioProyecto({
   const [cambiosDeOtros, setCambiosDeOtros] = useState<CambioDeOtroVista[]>([]);
   const [verCambios, setVerCambios] = useState(false);
   const [cierreAbierto, setCierreAbierto] = useState(false);
+  // H15: la ventana de cierre también se usa para finalizar el proyecto.
+  const [modoCierre, setModoCierre] = useState<"cerrar" | "finalizar">("cerrar");
+  const [colaboradoresAbierto, setColaboradoresAbierto] = useState(false);
+  // H11: en pantallas angostas la barra lateral se abre como panel deslizable.
+  const [elementosAbierto, setElementosAbierto] = useState(false);
   const [flechaResaltada, setFlechaResaltada] = useState<string | null>(null);
 
   const avisoRef = useRef<HTMLDivElement>(null);
@@ -218,11 +232,7 @@ export function EspacioProyecto({
   const nodo = nodoElegido ? v.actividades.find((a) => a.id === nodoElegido && a.padreId === actividadAbierta?.id) : undefined;
 
   // --- Gestos del borrador -----------------------------------------------------------
-  const modificar = (cambio: (b: Borrador) => Borrador) => {
-    setBorrador((b) => cambio(b));
-    // "Cambios confirmados" ya no describe la pantalla en cuanto se edita otra cosa.
-    setMensaje((m) => (m?.variante === "success" ? null : m));
-  };
+  const modificar = (cambio: (b: Borrador) => Borrador) => setBorrador((b) => cambio(b));
 
   const nuevaHistoria = () => {
     const id = idNuevo();
@@ -334,7 +344,8 @@ export function EspacioProyecto({
         reiniciarAlRecibir.current = true;
         setMostrarErrores(false);
         setCambiosDeOtros([]);
-        setMensaje({ variante: "success", titulo: "Cambios confirmados", lineas: [`${cuerpo?.revisiones === 1 ? "Se guardó" : "Se guardaron"} ${cantidad(cuerpo?.revisiones ?? 0, "versión nueva", "versiones nuevas")}.`] });
+        // Sin aviso de éxito: el botón vuelve a gris y cada elemento muestra su versión nueva.
+        setMensaje(null);
         router.refresh();
       } else if (respuesta.status === 409 && cuerpo?.codigo === "CONFLICTO_DE_EDICION") {
         mostrarProblemas("warning", "Otro usuario cambió elementos de tu borrador", cuerpo.elementos ?? [], true);
@@ -391,11 +402,75 @@ export function EspacioProyecto({
       const cuerpo = await respuesta.json().catch(() => null);
       if (!respuesta.ok) return cuerpo?.error ?? "Probá de nuevo en unos segundos.";
       setCierreAbierto(false);
-      setMensaje({ variante: "success", titulo: `Versión ${datos.numeroVersion}.${datos.numeroBuild}.${datos.numeroPatch} cerrada`, lineas: ["Se abrió una versión nueva en desarrollo para seguir trabajando."] });
+      // Sin aviso de éxito: el selector ya muestra la versión cerrada.
+      setMensaje(null);
       router.refresh();
       return null;
     } catch {
       return "Revisá tu conexión y probá de nuevo.";
+    }
+  };
+
+  // --- H15: finalizar y reabrir el proyecto ---------------------------------------------
+  const pedirAlProyecto = async (accion: "finalizar" | "reabrir", cuerpo?: unknown) => {
+    const respuesta = await fetch(`/api/proyectos/${proyecto.id}/${accion}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpo ?? {}),
+    });
+    const datos = await respuesta.json().catch(() => null);
+    return { ok: respuesta.ok, codigo: datos?.codigo as string | undefined, error: datos?.error as string | undefined };
+  };
+
+  const abrirFinalizacionConCierre = () => {
+    setModoCierre("finalizar");
+    setCierreAbierto(true);
+  };
+
+  const finalizar = async () => {
+    const enDesarrollo = builds.find((b) => b.estado === "EN_DESARROLLO");
+    // Con cambios (propios sin confirmar o ya confirmados) se finaliza cerrando la versión.
+    if (conCambios || enDesarrollo?.tieneCambios) return abrirFinalizacionConCierre();
+    if (!ultimaCerrada) {
+      setMensaje({ variante: "warning", titulo: "No hay nada que finalizar", lineas: ["El proyecto no tiene versiones cerradas ni cambios en la versión en desarrollo."] });
+      return;
+    }
+    const pregunta = `¿Finalizar el proyecto? Queda en su última versión cerrada (${ultimaCerrada.etiqueta}) y nadie va a poder modificar la documentación hasta que lo reabras.`;
+    if (!window.confirm(pregunta)) return;
+    try {
+      const r = await pedirAlProyecto("finalizar");
+      if (r.ok) return router.refresh();
+      // Otro usuario confirmó cambios mientras tanto: hay que cerrar la versión.
+      if (r.codigo === "CIERRE_REQUERIDO") {
+        router.refresh();
+        return abrirFinalizacionConCierre();
+      }
+      setMensaje({ variante: "error", titulo: "No se pudo finalizar el proyecto", lineas: [r.error ?? "Probá de nuevo en unos segundos."] });
+    } catch {
+      setMensaje({ variante: "error", titulo: "No se pudo finalizar el proyecto", lineas: ["Revisá tu conexión y probá de nuevo."] });
+    }
+  };
+
+  const finalizarConCierre = async (datos: CerrarVersionProyectoInput): Promise<string | null> => {
+    try {
+      const r = await pedirAlProyecto("finalizar", { cierre: datos });
+      if (!r.ok) return r.error ?? "Probá de nuevo en unos segundos.";
+      setCierreAbierto(false);
+      router.refresh();
+      return null;
+    } catch {
+      return "Revisá tu conexión y probá de nuevo.";
+    }
+  };
+
+  const reabrir = async () => {
+    if (!window.confirm("¿Reabrir el proyecto? Se abre una versión en desarrollo nueva para seguir documentando.")) return;
+    try {
+      const r = await pedirAlProyecto("reabrir");
+      if (r.ok) return router.refresh();
+      setMensaje({ variante: "error", titulo: "No se pudo reabrir el proyecto", lineas: [r.error ?? "Probá de nuevo en unos segundos."] });
+    } catch {
+      setMensaje({ variante: "error", titulo: "No se pudo reabrir el proyecto", lineas: ["Revisá tu conexión y probá de nuevo."] });
     }
   };
 
@@ -482,10 +557,38 @@ export function EspacioProyecto({
         entregables={entregables}
         hoy={hoy}
         puedeEditarProyecto={puedeEditarProyecto}
-        puedeEditar={puedeEditar}
+        onVerColaboradores={() => setColaboradoresAbierto(true)}
+        finalizado={finalizado}
+        onFinalizar={() => void finalizar()}
+        onReabrir={() => void reabrir()}
       />
     );
   }
+
+  // La misma barra al costado y en el panel deslizable; en el panel, elegir o crear
+  // un elemento lo cierra para mostrar el contenido.
+  const barraLateral = (prefijo: string) => (
+    <BarraLateral
+      prefijo={prefijo}
+      historias={historiasLista}
+      actividades={v.actividades}
+      seleccion={seleccion}
+      soloLectura={!puedeEditar}
+      onSeleccionar={(s) => {
+        setSeleccion(s);
+        setNodoElegido(null);
+        setElementosAbierto(false);
+      }}
+      onNuevaHistoria={() => {
+        nuevaHistoria();
+        setElementosAbierto(false);
+      }}
+      onNuevoDiagrama={() => {
+        nuevoDiagrama();
+        setElementosAbierto(false);
+      }}
+    />
+  );
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-10 sm:px-6">
@@ -496,12 +599,18 @@ export function EspacioProyecto({
         builds={builds}
         buildVisto={buildVisto}
         puedeEditar={puedeEditar}
+        finalizado={finalizado}
+        vistaActual={vistaActual}
         estadoConfirmar={estadoConfirmar}
         confirmando={confirmando}
         cambiosDeOtros={cambiosDeOtros.length}
         onNavegar={navegar}
-        onAbrirCierre={() => setCierreAbierto(true)}
+        onAbrirCierre={() => {
+          setModoCierre("cerrar");
+          setCierreAbierto(true);
+        }}
         onVerCambios={() => setVerCambios(true)}
+        onAbrirElementos={() => setElementosAbierto(true)}
         onConfirmar={confirmar}
         onDescartar={descartar}
       />
@@ -536,22 +645,10 @@ export function EspacioProyecto({
         </div>
       )}
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[17rem_minmax(0,1fr)]">
-        {/* En pantallas anchas la barra queda fija debajo de la barra del proyecto. */}
-        <aside className="lg:sticky lg:top-24 lg:self-start">
-          <BarraLateral
-            historias={historiasLista}
-            actividades={v.actividades}
-            seleccion={seleccion}
-            soloLectura={!puedeEditar}
-            onSeleccionar={(s) => {
-              setSeleccion(s);
-              setNodoElegido(null);
-            }}
-            onNuevaHistoria={nuevaHistoria}
-            onNuevoDiagrama={nuevoDiagrama}
-          />
-        </aside>
+      <div className="mt-4 grid gap-4 md:grid-cols-[15rem_minmax(0,1fr)] lg:grid-cols-[17rem_minmax(0,1fr)]">
+        {/* Desde 48rem la barra queda al costado, fija debajo de la barra del proyecto.
+            En pantallas más angostas se abre con el botón "Elementos" (H11). */}
+        <aside className="hidden md:sticky md:top-24 md:block md:self-start">{barraLateral("barra")}</aside>
         <section aria-label="Elemento elegido" className="min-w-0">
           {panel}
         </section>
@@ -564,6 +661,19 @@ export function EspacioProyecto({
         onActualizar={actualizar}
         onCerrar={() => setVerCambios(false)}
       />
+      <HojaLateral abierto={elementosAbierto} titulo="Elementos del proyecto" onCerrar={() => setElementosAbierto(false)}>
+        {barraLateral("hoja")}
+      </HojaLateral>
+
+      <DialogoColaboradores
+        abierto={colaboradoresAbierto}
+        proyectoId={proyecto.id}
+        // En una versión cerrada toda la pantalla es de solo lectura (H9), también esta ventana.
+        esDueno={puedeEditarProyecto}
+        onCerrar={() => setColaboradoresAbierto(false)}
+        onCambio={() => router.refresh()}
+      />
+
       {cierreAbierto && (
         <DialogoCerrarVersion
           abierto={cierreAbierto}
@@ -572,8 +682,9 @@ export function EspacioProyecto({
           entregables={entregables}
           hoy={hoy}
           esDueno={rol === "OWNER"}
+          modo={modoCierre}
           onCerrar={() => setCierreAbierto(false)}
-          onConfirmar={cerrarVersion}
+          onConfirmar={modoCierre === "finalizar" ? finalizarConCierre : cerrarVersion}
         />
       )}
     </div>

@@ -87,7 +87,7 @@ que lo referencian.
 | Entidad | Qué representa | Se relaciona con |
 |---|---|---|
 | **Usuario** | Persona con cuenta en el sistema | MiembroProyecto (1-N), Proyecto (N-N a través de MiembroProyecto), revisiones que escribió |
-| **Proyecto** | Espacio de trabajo donde vive la documentación. Guarda además su **definición** (ver abajo) | MiembroProyecto (1-N), elementos versionables (1-N), VersionProyecto (1-N), Entregable (1-N) |
+| **Proyecto** | Espacio de trabajo donde vive la documentación. Guarda además su **definición** (ver abajo) y su **estado**: en proceso o finalizado (H15) | MiembroProyecto (1-N), elementos versionables (1-N), VersionProyecto (1-N), Entregable (1-N) |
 | **Entregable** | Algo que el proyecto se compromete a entregar, con una fecha estimada. Lo planifica el dueño y se marca como entregado cuando se entrega | Proyecto (N-1), VersionProyecto (1-N: los builds cerrados que lo documentan) |
 | **MiembroProyecto** | Relación entre un usuario y un proyecto: rol asignado y estado de la invitación (pendiente, aceptada o rechazada) | Usuario (N-1), Proyecto (N-1) |
 | **HistoriaUsuario** / **HistoriaUsuarioVersion** | Identidad y revisiones de una historia de usuario. El título es único dentro del proyecto | Proyecto (N-1), actividades que la referencian |
@@ -220,12 +220,14 @@ Criterios de aceptacion:
 **Como** dueño, **quiero** invitar colaboradores y asignarles un rol, **para** controlar quien puede
 editar o solo consultar la documentacion.
 
-> En la interfaz, la cabecera del proyecto tiene un boton **"Colaboradores"** que abre una ventana
-> emergente. Arriba hay un cuadro de texto donde el dueño escribe el email de un usuario y, con cada
-> `Enter`, lo agrega a la lista de abajo. Desde esa lista elige el rol de cada uno (**Editor** o
-> **Lector**). Cada proyecto tiene su propia lista de colaboradores, con su estado de invitacion
-> (pendiente, aceptada o rechazada). En la pantalla de inicio cada usuario ve los proyectos en los
-> que participa.
+> En la interfaz, la seccion **"Colaboradores"** de la informacion del proyecto tiene un boton que
+> abre una ventana emergente. Arriba hay un cuadro de texto donde el dueño escribe el email de un usuario, y al lado
+> elige el rol con el que lo invita (**Editor** o **Lector**); con cada `Enter` lo agrega a la lista
+> de abajo. Desde esa lista puede cambiar el rol de los que ya aceptaron (el de una invitacion
+> pendiente no cambia: el correo ya salio con ese rol; para corregirlo, la quita y vuelve a invitar).
+> Cada proyecto tiene su propia lista de colaboradores, con su estado de invitacion (pendiente,
+> aceptada o rechazada). El resto de los colaboradores abre la misma ventana y ve la lista en solo
+> lectura. En la pantalla de inicio cada usuario ve los proyectos en los que participa.
 
 > **Estado actual vs. objetivo.** El modelo de estados (pendiente / aceptada / rechazada) y todo lo
 > que depende de un correo de por medio -enviar la invitacion, que el usuario la acepte o la
@@ -433,7 +435,8 @@ Criterios de aceptación:
       mismas flechas y las mismas asociaciones con historias.
 - [ ] Se ve el número, el nombre, la descripción y la fecha de cierre de la versión, y el entregable al
       que corresponde.
-- [ ] Un botón "Volver a la versión actual" regresa al build en desarrollo.
+- [ ] Un botón "Volver a la versión actual" regresa al build en desarrollo (en un proyecto finalizado,
+      a la última versión cerrada; ver H15).
 - [ ] Caso de error: si el usuario no pertenece al proyecto, el sistema rechaza el acceso.
 
 ### H10 - Conectar actividades con flechas
@@ -460,12 +463,12 @@ Criterios de aceptación:
 llegar rápido a lo que necesito.
 
 Criterios de aceptación:
-- [ ] La pantalla del proyecto tiene una barra lateral a la izquierda con "Información del proyecto"
-      y un acordeón por tipo de elemento versionable: "Historias de usuario" y "Diagramas de
-      actividades".
-- [ ] Solo un acordeón está abierto a la vez: abrir uno cierra el otro. El acordeón abierto ocupa el
-      alto que dejan libre los demás dentro de la barra; si su contenido no entra, se desplaza dentro
-      del acordeón (la barra no crece hasta el infinito).
+- [ ] La pantalla del proyecto tiene una barra lateral a la izquierda con "Proyecto" (abre la
+      información del proyecto) y un acordeón por tipo de elemento versionable: "Historias de usuario"
+      y "Diagramas de actividades". Los tres títulos se muestran con el mismo estilo.
+- [ ] La barra tiene un alto fijo en pantallas anchas: no cambia al abrir o cerrar un acordeón. Solo
+      un acordeón está abierto a la vez (abrir uno cierra el otro), y ocupa el alto que dejan libre los
+      títulos; si su contenido no entra, se desplaza dentro del acordeón.
 - [ ] El acordeón "Diagramas de actividades" muestra un árbol: cada diagrama con sus actividades, y
       cada actividad con sus actividades internas, en todos los niveles.
 - [ ] Cada elemento del árbol que tiene actividades internas se puede desplegar y plegar. Al entrar,
@@ -473,7 +476,13 @@ Criterios de aceptación:
 - [ ] Seleccionar un elemento en la barra abre su detalle en el panel principal.
 - [ ] La barra respeta el build que se está mirando: en una versión cerrada muestra los elementos de
       ese momento.
-- [ ] En pantallas angostas (375 px), la barra se muestra arriba del contenido.
+- [ ] Desde pantallas medianas (48rem de ancho) la barra está a la izquierda del contenido. En
+      pantallas más angostas no ocupa lugar fijo: un botón **"Elementos"** en la barra fija del
+      proyecto (la de "Confirmar cambios", siempre visible) la abre como panel deslizable desde la
+      izquierda, y al elegir un elemento el panel se cierra. Así la barra se alcanza desde cualquier
+      punto de la página.
+- [ ] Si la ventana es baja, el acordeón abierto conserva un alto mínimo y, si aun así no entra todo,
+      la barra se desplaza por dentro: ningún título, botón o separador queda fuera de la barra.
 
 ### H12 - Confirmar cambios y trabajar en simultáneo
 
@@ -549,6 +558,37 @@ Criterios de aceptación:
 - [ ] Caso de error: si quien intenta crear, editar o eliminar un entregable no es el dueño, el sistema
       rechaza la acción aunque la llamada no venga de la interfaz.
 
+### H15 - Finalizar y reabrir el proyecto
+
+**Como** dueño, **quiero** finalizar el proyecto cuando se terminó de documentar, **para** que no quede
+un build "En desarrollo" invitando a seguir documentando algo cerrado.
+
+Criterios de aceptación:
+- [ ] En "Información del proyecto" el dueño ve "Finalizar proyecto". Ningún otro rol ve la opción.
+- [ ] Si el build en desarrollo tiene cambios confirmados, "Finalizar proyecto" abre la misma ventana
+      que cerrar una versión (H8: número, entregable, nombre y descripción). Al confirmar, el build se
+      cierra con esos datos y **no** se abre uno nuevo: el proyecto queda finalizado.
+- [ ] Si el build en desarrollo no tiene cambios, solo se pide confirmar: ese build vacío se descarta y
+      el proyecto queda finalizado en su última versión cerrada.
+- [ ] Caso de error: si el proyecto nunca cerró una versión y el build en desarrollo no tiene cambios,
+      no hay nada que finalizar y el sistema lo avisa.
+- [ ] Si el dueño tiene cambios sin confirmar, el sistema le pide confirmarlos o descartarlos antes de
+      finalizar (como en H8).
+- [ ] Con el proyecto finalizado: no hay build "En desarrollo"; el selector de versión solo muestra las
+      versiones cerradas y la pantalla abre en la última; nadie puede crear, modificar ni eliminar
+      documentación ni cerrar versiones. El dueño sigue pudiendo editar la definición del proyecto,
+      los entregables (por ejemplo, marcar uno como entregado) y los colaboradores.
+- [ ] Si otro usuario tenía cambios sin confirmar, al confirmarlos el sistema los rechaza y le avisa
+      que el proyecto fue finalizado.
+- [ ] En "Mis proyectos", cada tarjeta indica si el proyecto está **En proceso** o **Finalizado**.
+- [ ] Con el proyecto finalizado, el dueño ve "Reabrir proyecto": al confirmarlo se abre un build en
+      desarrollo nuevo y el proyecto vuelve a estar en proceso. La numeración de las versiones sigue
+      desde la última cerrada.
+- [ ] No se pide un motivo para finalizar ni para reabrir.
+- [ ] Finalizar no exige que los entregables estén entregados.
+- [ ] Caso de error: si quien intenta finalizar o reabrir no es el dueño, el sistema rechaza la acción
+      aunque la llamada no venga de la interfaz.
+
 ## 5. Flujo principal
 
 ### Mapa de pantallas
@@ -559,7 +599,7 @@ Los permisos se verifican siempre en el servidor; ocultar una acción en la UI n
 | Pantalla | Ruta | Quién la ve | Propósito |
 |---|---|---|---|
 | Login | `/login` | Público | Iniciar sesión con Google. |
-| Mis proyectos | `/proyectos` | Usuario autenticado | Listar únicamente proyectos con membresía aceptada y mostrar el rol en cada uno, y crear un proyecto nuevo (H1): quien lo crea queda como Dueño. |
+| Mis proyectos | `/proyectos` | Usuario autenticado | Listar únicamente proyectos con membresía aceptada y mostrar en cada uno el rol y si está en proceso o finalizado (H15), y crear un proyecto nuevo (H1): quien lo crea queda como Dueño. |
 | Espacio del proyecto | `/proyectos/[id]` | Dueño, Editor o Lector aceptado del proyecto | Barra lateral con historias y diagramas (H11), panel con el elemento elegido (H3 a H7, H10), información del proyecto con su definición y sus entregables (H13, H14), selector de versión y cierre (H8, H9), y "Confirmar cambios" (H12). Dueño y Editor editan la documentación; solo el Dueño edita la definición y los entregables; el Lector solo consulta. |
 | Versión cerrada | `/proyectos/[id]?build=<n>` | Dueño, Editor o Lector aceptado del proyecto | La misma pantalla en solo lectura, con la documentación del build `n` (H9). |
 | Proyecto no encontrado | `/proyectos/[id]` | Usuario autenticado sin acceso o id inexistente | Mostrar el mismo 404 para no revelar si un proyecto ajeno existe. |
@@ -589,6 +629,8 @@ El recorrido completo, paso a paso, del flujo que da valor al sistema (no un ABM
    exactamente como estaba, diagramas incluidos (H9).
 9. Cuando se entrega, el dueño marca el entregable como entregado con su fecha, y el equipo ve si se
    cumplió la fecha estimada (H14).
+10. Cuando se terminó de documentar, el dueño finaliza el proyecto; si hace falta, puede reabrirlo
+    (H15).
 
 ## 6. Reglas de negocio
 
@@ -657,8 +699,12 @@ revisar a mano.
 
 ### Versiones de proyecto (builds)
 
-- Un proyecto tiene siempre exactamente un build en desarrollo; se crea con el proyecto y se abre uno
-  nuevo automáticamente cada vez que se cierra el anterior.
+- Un proyecto **en proceso** tiene siempre exactamente un build en desarrollo; se crea con el proyecto y
+  se abre uno nuevo automáticamente cada vez que se cierra el anterior. Un proyecto **finalizado** no
+  tiene build en desarrollo (H15).
+- Finalizar cierra el build en desarrollo si tiene cambios (con las mismas reglas que cerrar una
+  versión) o lo descarta si está vacío. Si no hay versiones cerradas ni cambios, no se puede finalizar.
+- Reabrir abre un build en desarrollo nuevo, con el orden siguiente al último.
 - El build en desarrollo no tiene número todavía. Al cerrarlo recibe `Version.Build.Patch` y queda
   inmutable: las revisiones que se confirmen después pertenecen al build siguiente.
 - Cerrar una versión no copia documentación: el estado del build cerrado se obtiene con la regla de
@@ -677,7 +723,9 @@ revisar a mano.
 - El Lector consulta la documentación actual, el historial de cada elemento y las versiones cerradas,
   pero no puede crear, editar ni eliminar.
 - Solo el Dueño administra colaboradores y roles, edita la definición del proyecto, crea, edita,
-  marca como entregados y elimina entregables, y elimina el proyecto.
+  marca como entregados y elimina entregables, finaliza y reabre el proyecto, y lo elimina.
+- En un proyecto finalizado nadie crea, modifica ni elimina documentación ni cierra versiones; el
+  Dueño conserva lo demás.
 - Todos los colaboradores ven la definición del proyecto y sus entregables.
 
 ### Colaboradores

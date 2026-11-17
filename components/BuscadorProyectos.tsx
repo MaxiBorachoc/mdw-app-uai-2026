@@ -6,7 +6,7 @@ import { SinDatos } from "@/components/SinDatos";
 import { TarjetaProyecto } from "@/components/TarjetaProyecto";
 import { Input } from "@/components/ui/input";
 
-export function BuscadorProyectos({ proyectos }: { proyectos: ProyectoListado[] }) {
+export function BuscadorProyectos({ proyectos, usuarioId }: { proyectos: ProyectoListado[]; usuarioId: string }) {
   const [termino, setTermino] = useState("");
 
   const normalizado = termino.trim().toLocaleLowerCase("es-AR");
@@ -50,7 +50,7 @@ export function BuscadorProyectos({ proyectos }: { proyectos: ProyectoListado[] 
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtrados.map((proyecto) => (
             <li key={proyecto.id}>
-              <TarjetaProyecto proyecto={proyecto} />
+              <TarjetaProyecto proyecto={proyecto} usuarioId={usuarioId} />
             </li>
           ))}
         </ul>

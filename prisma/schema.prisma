@@ -25,6 +25,13 @@ enum EstadoVersionProyecto {
   CERRADA
 }
 
+// H15: un proyecto en proceso tiene exactamente un build en desarrollo; uno
+// finalizado, ninguno (docs/spec.md seccion 6).
+enum EstadoProyecto {
+  EN_PROCESO
+  FINALIZADO
+}
+
 enum EstadoInvitacion {
   PENDIENTE
   ACEPTADA
@@ -47,10 +54,11 @@ model Usuario {
 }
 
 model Proyecto {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   nombre      String
-  descripcion String   @default("")
-  creadoEn    DateTime @default(now())
+  descripcion String         @default("")
+  creadoEn    DateTime       @default(now())
+  estado      EstadoProyecto @default(EN_PROCESO)
 
   // Definicion del proyecto (H13). No se versiona: guardarla reemplaza la anterior.
   problemaNegocio    String    @default("")

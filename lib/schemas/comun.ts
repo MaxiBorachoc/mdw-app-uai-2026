@@ -29,3 +29,7 @@ export const FechaSchema = z
     const fecha = new Date(`${texto}T00:00:00Z`);
     return !Number.isNaN(fecha.getTime()) && fecha.toISOString().slice(0, 10) === texto;
   }, "La fecha no existe");
+
+// H15: en proceso (tiene un build en desarrollo) o finalizado (no tiene).
+export const EstadoProyectoSchema = z.enum(["EN_PROCESO", "FINALIZADO"]);
+export type EstadoProyecto = z.infer<typeof EstadoProyectoSchema>;

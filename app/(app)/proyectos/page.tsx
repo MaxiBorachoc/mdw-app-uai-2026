@@ -18,6 +18,7 @@ export default async function ProyectosPage() {
     descripcion: proyecto.descripcion,
     ownerNombre: proyecto.owner.nombre,
     rol: proyecto.rol,
+    estado: proyecto.estado,
   }));
 
   return (
@@ -50,7 +51,7 @@ export default async function ProyectosPage() {
             descripcion="Creá el primero con el formulario de arriba, o aceptá una invitación para colaborar en uno existente."
           />
         ) : (
-          <BuscadorProyectos proyectos={proyectosParaCliente} />
+          <BuscadorProyectos proyectos={proyectosParaCliente} usuarioId={usuario.id} />
         )}
       </main>
     </>

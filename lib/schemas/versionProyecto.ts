@@ -74,3 +74,12 @@ export const cerrarVersionProyectoSchema = z
     path: ["numeroPatch"],
   });
 export type CerrarVersionProyectoInput = z.infer<typeof cerrarVersionProyectoSchema>;
+
+/**
+ * H15: "Finalizar proyecto". Los datos del cierre solo hacen falta si el build en
+ * desarrollo tiene cambios; si está vacío, se descarta y no se usan.
+ */
+export const finalizarProyectoSchema = z.object({
+  cierre: cerrarVersionProyectoSchema.optional(),
+});
+export type FinalizarProyectoInput = z.infer<typeof finalizarProyectoSchema>;

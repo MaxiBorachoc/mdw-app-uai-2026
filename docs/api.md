@@ -20,6 +20,8 @@ los de validación (400) agregan `"detalles"` con el detalle de Zod y los confli
 | GET | `/api/proyectos/:id/historias/:historiaId/revisiones` | Historial de versiones de una historia (H4) | Miembro del proyecto (cualquier rol) |
 | GET | `/api/proyectos/:id/actividades/:actividadId/revisiones` | Historial de versiones de una actividad (H6) | Miembro del proyecto (cualquier rol) |
 | POST | `/api/proyectos/:id/cerrar-version` | Cierra la versión en desarrollo, vinculada a un entregable, y abre la siguiente (H8) | `OWNER` o `EDITOR` |
+| POST | `/api/proyectos/:id/finalizar` | Finaliza el proyecto: cierra el build en desarrollo si tiene cambios o lo descarta si está vacío (H15) | `OWNER` |
+| POST | `/api/proyectos/:id/reabrir` | Reabre un proyecto finalizado con un build en desarrollo nuevo (H15) | `OWNER` |
 | GET | `/api/proyectos/:id/entregables` | Lista los entregables con las versiones cerradas de cada uno (H14) | Miembro del proyecto (cualquier rol) |
 | POST | `/api/proyectos/:id/entregables` | Crea un entregable (H14) | `OWNER` |
 | PUT | `/api/proyectos/:id/entregables/:entregableId` | Edita un entregable, incluido marcarlo como entregado (H14) | `OWNER` |
@@ -44,9 +46,9 @@ todo endpoint que no sea `aceptar`/`rechazar`: ver `docs/spec.md` H2.
 
 ## Respuestas exitosas
 
-- `GET /api/proyectos` → `200`, arreglo (máx. 50) de `{ id, nombre, descripcion, creadoEn, owner: { id, nombre } }`.
+- `GET /api/proyectos` → `200`, arreglo (máx. 50) de `{ id, nombre, descripcion, creadoEn, estado, owner: { id, nombre } }`. `estado` es `"EN_PROCESO"` o `"FINALIZADO"` (H15).
 - `POST /api/proyectos` → `201`, `{ id, nombre, descripcion, creadoEn, ownerId }`. Body: `{ nombre: string (obligatorio), descripcion?: string }`.
-- `GET /api/proyectos/:id` → `200`, `{ id, nombre, descripcion, creadoEn, problemaNegocio, objetivo, limitesExclusiones, fechaInicio, fechaFinEstimada, owner, miembros: [{ id, rol, usuario: { id, nombre, email } }] }`. Las fechas de la definición son `"AAAA-MM-DD"` o `null`.
+- `GET /api/proyectos/:id` → `200`, `{ id, nombre, descripcion, creadoEn, estado, problemaNegocio, objetivo, limitesExclusiones, fechaInicio, fechaFinEstimada, owner, miembros: [{ id, rol, usuario: { id, nombre, email } }] }`. Las fechas de la definición son `"AAAA-MM-DD"` o `null`.
 - `PUT /api/proyectos/:id` → `200`, el proyecto actualizado con su definición. Body: `{ nombre: string (obligatorio), descripcion?: string, problemaNegocio?: string, objetivo?: string, limitesExclusiones?: string[], fechaInicio?: "AAAA-MM-DD" | null, fechaFinEstimada?: "AAAA-MM-DD" | null }`. Es un **reemplazo completo**: los campos opcionales que no vienen quedan vacíos. La definición no se versiona (spec H13). `limitesExclusiones` no tiene límite de cantidad en la spec; el servidor corta en 1000 solo como protección técnica.
 - `DELETE /api/proyectos/:id` → `204` sin cuerpo. Borra en cascada miembros, historias, actividades, conexiones y versiones (incluidas las cerradas, ver spec sección 3). La doble confirmación es responsabilidad de la UI.
 - `GET /api/proyectos/:id/documentacion[?build=<n>]` → `200`, `{ build: { id, orden, estado, numeroVersion, numeroBuild, numeroPatch, nombre, descripcion, cerradaEl }, historias, actividades, conexiones }`. `n` es el `orden` del build (1, 2, 3… dentro del proyecto); sin `build` devuelve el build en desarrollo. Cada elemento trae `id`, `numeroVersion` (su versión vigente en ese build) y sus datos: historia `{ titulo, descripcion, criteriosAceptacion }`, actividad `{ nombre, documentacion, padreId, posicionX, posicionY, historiaIds }` (`padreId: null` = diagrama), flecha `{ origenId, destinoId }`. Solo vienen los elementos vigentes: los eliminados, y lo que depende de ellos, no aparecen (spec sección 3).
@@ -54,6 +56,8 @@ todo endpoint que no sea `aceptar`/`rechazar`: ver `docs/spec.md` H2.
 - `GET /api/proyectos/:id/cambios?desde=<fecha ISO>` → `200`, `{ cambios: [{ tipo: "HISTORIA" | "ACTIVIDAD" | "CONEXION", elementoId, numeroVersion, actividadId, nombre, accion: "CREO" | "MODIFICO" | "ELIMINO", autor: { id, nombre }, creadoEn }], ahora }`. No incluye los cambios de quien pregunta. Una flecha se informa con el nombre de la actividad cuyo diagrama la contiene. `ahora` es la hora de la base: el cliente la usa como próximo `desde`.
 - `GET /api/proyectos/:id/historias/:historiaId/revisiones` y `GET .../actividades/:actividadId/revisiones` → `200`, arreglo (máx. 500, de la más nueva a la más vieja) con los datos de cada versión más `{ numeroVersion, eliminado, creadoEn, autor: { id, nombre }, build }`; `build` es `"En desarrollo"` o el número `X.Y.Z` de la versión cerrada que la incluye.
 - `POST /api/proyectos/:id/cerrar-version` → `200`, `{ cerrada: { id, estado, numeroVersion, numeroBuild, numeroPatch, nombre, descripcion, cerradaEl }, siguiente: { id, orden, estado } }`; `cerrada` incluye además `entregable: { id, nombre }`. Body: `{ numeroVersion: int >= 0, numeroBuild: int >= 0, numeroPatch: int >= 0, nombre?: string, descripcion?: string, entregableId: string }`.
+- `POST /api/proyectos/:id/finalizar` → `200`, `{ estado: "FINALIZADO", cerrada }`. Body: `{ cierre?: <mismo body que cerrar-version> }`. Si el build en desarrollo tiene cambios, `cierre` es obligatorio y `cerrada` es la versión que se cerró; si está vacío, el build se descarta, `cierre` se ignora y `cerrada` es `null`. Con el proyecto finalizado no hay build en desarrollo: `GET .../documentacion` sin `?build` devuelve la última versión cerrada.
+- `POST /api/proyectos/:id/reabrir` → `200`, `{ estado: "EN_PROCESO", siguiente: { id, orden, estado } }`. Sin body.
 - `GET /api/proyectos/:id/entregables` → `200`, arreglo (máx. 500, por fecha estimada) de `{ id, nombre, descripcion, fechaEstimada, entregado, fechaEntrega, versiones: [{ orden, etiqueta }] }`. Fechas `"AAAA-MM-DD"`; `versiones` son los builds cerrados que apuntan al entregable. El estado (pendiente, atrasado…) no viene: lo calcula la pantalla con la fecha de hoy (spec sección 6).
 - `POST /api/proyectos/:id/entregables` → `201`, el entregable creado. `PUT .../entregables/:entregableId` → `200`, el entregable actualizado. Body de ambos: `{ nombre: string, descripcion?: string, fechaEstimada: "AAAA-MM-DD", entregado?: boolean, fechaEntrega?: "AAAA-MM-DD" | null }`. Si `entregado` es `false`, la fecha de entrega se guarda vacía.
 - `DELETE /api/proyectos/:id/entregables/:entregableId` → `204` sin cuerpo.
@@ -115,6 +119,13 @@ queda en el log del servidor.
 | POST `.../cerrar-version` | Falta `entregableId` | 400 | `Elegí el entregable al que corresponde la versión` (en `detalles.fieldErrors.entregableId`) | H8 |
 | POST `.../cerrar-version` | El proyecto no tiene ningún entregable | 409 | `El proyecto todavía no tiene entregables: el dueño tiene que crear uno antes de cerrar la versión` + `codigo: "SIN_ENTREGABLES"` | H8, caso de error |
 | POST `.../cerrar-version` | El entregable no existe en ese proyecto | 409 | `El entregable elegido no existe en este proyecto` + `codigo: "ENTREGABLE_INEXISTENTE"` | H8, caso de error |
+| POST `.../finalizar`, `.../reabrir` | Es miembro pero no `OWNER` | 403 | `Tu rol en este proyecto no permite esta operación` | H15 |
+| POST `.../finalizar` | El build en desarrollo tiene cambios y no vino `cierre` | 409 | `La versión en desarrollo tiene cambios: para finalizar hay que cerrarla con su número y su entregable` + `codigo: "CIERRE_REQUERIDO"` | H15 |
+| POST `.../finalizar` | No hay versiones cerradas ni cambios en desarrollo | 409 | `No hay nada que finalizar: …` + `codigo: "NADA_QUE_FINALIZAR"` | H15, caso de error |
+| POST `.../finalizar` | El proyecto ya está finalizado | 409 | `El proyecto ya está finalizado` + `codigo: "YA_FINALIZADO"` | H15 |
+| POST `.../finalizar` | El `cierre` no respeta las reglas de H8 (número repetido o menor, entregable inexistente…) | 409 | Los mismos mensajes y códigos que `cerrar-version` | H15 / H8 |
+| POST `.../reabrir` | El proyecto no está finalizado | 409 | `El proyecto no está finalizado` + `codigo: "PROYECTO_EN_PROCESO"` | H15 |
+| POST `.../cambios`, `.../cerrar-version` | El proyecto está finalizado | 409 | `El proyecto fue finalizado: …` + `codigo: "PROYECTO_FINALIZADO"` | H15 |
 | POST/PUT/DELETE `.../entregables` | Es miembro pero no `OWNER` | 403 | `Tu rol en este proyecto no permite esta operación` | H14 |
 | POST/PUT `.../entregables` | Falta el nombre o la fecha estimada, un dato supera su largo, está entregado sin fecha de entrega, o la fecha de entrega es posterior a hoy | 400 | `Datos inválidos` + `detalles` de Zod por campo | H14 |
 | PUT/DELETE `.../entregables/:entregableId` | El entregable no existe en ese proyecto | 404 | `Entregable no encontrado` | H14 |
