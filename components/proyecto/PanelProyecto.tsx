@@ -1,11 +1,10 @@
 /**
  * Lo que se ve al entrar a un proyecto, antes de elegir un elemento: sus datos,
- * los colaboradores aceptados y un resumen de la documentación del build visto.
+ * y los colaboradores aceptados.
  */
 import type { RolProyecto } from "@prisma/client";
 import { RolProyectoBadge } from "@/components/RolProyecto";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { cantidad } from "@/lib/utils";
 
 const formatoFecha = new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeZone: "America/Argentina/Buenos_Aires" });
 
@@ -13,17 +12,13 @@ export function PanelProyecto({
   descripcion,
   ownerNombre,
   creadoEn,
-  versionVista,
   miembros,
-  totales,
   puedeEditar,
 }: {
   descripcion: string;
   ownerNombre: string;
   creadoEn: string;
-  versionVista: string;
   miembros: { id: string; nombre: string; email: string; rol: RolProyecto }[];
-  totales: { historias: number; diagramas: number; actividades: number; flechas: number };
   puedeEditar: boolean;
 }) {
   return (
@@ -42,21 +37,6 @@ export function PanelProyecto({
             <div>
               <dt className="font-medium text-muted-foreground">Creado</dt>
               <dd className="mt-1 font-medium">{formatoFecha.format(new Date(creadoEn))}</dd>
-            </div>
-            <div>
-              <dt className="font-medium text-muted-foreground">Versión que estás viendo</dt>
-              <dd className="mt-1 font-medium">{versionVista}</dd>
-            </div>
-            <div>
-              <dt className="font-medium text-muted-foreground">Documentación</dt>
-              <dd className="mt-1 font-medium">
-                {[
-                  cantidad(totales.historias, "historia", "historias"),
-                  cantidad(totales.diagramas, "diagrama", "diagramas"),
-                  cantidad(totales.actividades, "actividad", "actividades"),
-                  cantidad(totales.flechas, "flecha", "flechas"),
-                ].join(" · ")}
-              </dd>
             </div>
           </dl>
         </CardContent>

@@ -29,15 +29,12 @@ export function Navegacion({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* El rol solo existe dentro de un proyecto: fuera de uno no se muestra nada. */}
+          {rol && <RolProyectoBadge rol={rol} />}
           <div className="min-w-0 text-right">
             <p className="truncate text-sm font-medium">{usuario.nombre}</p>
             <p className="truncate text-xs text-muted-foreground">{usuario.email}</p>
           </div>
-          {rol ? (
-            <RolProyectoBadge rol={rol} />
-          ) : (
-            <span className="text-xs font-medium text-muted-foreground">Rol según proyecto</span>
-          )}
           <BotonLogout />
         </div>
       </div>

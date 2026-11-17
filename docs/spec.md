@@ -259,7 +259,7 @@ Criterios de aceptacion:
 sistema y con qué criterios se valida.
 
 Criterios de aceptación:
-- [ ] Desde la barra lateral (ver H11), en la sección "Historias de usuario", el usuario elige "Nueva
+- [ ] Desde la barra lateral (ver H11), en el acordeón "Historias de usuario", el usuario elige "Nueva
       historia" y carga título, descripción y criterios de aceptación (uno o más).
 - [ ] Al confirmar, la historia queda creada con su versión 1, registrada en el build en desarrollo.
 - [ ] Caso de error: si falta título o descripción, no se puede confirmar y se marcan los campos a
@@ -298,7 +298,7 @@ Criterios de aceptación:
 representar cada proceso funcional por separado.
 
 Criterios de aceptación:
-- [ ] Desde la barra lateral, en la sección "Diagramas", el usuario elige "Nuevo diagrama" y carga un
+- [ ] Desde la barra lateral, en el acordeón "Diagramas de actividades", el usuario elige "Nuevo diagrama" y carga un
       nombre. El diagrama es una actividad sin padre: tiene nombre, documentación e historias
       asociadas como cualquier actividad (ver H6), pero no tiene posición porque no se dibuja en ningún
       lienzo.
@@ -415,10 +415,16 @@ Criterios de aceptación:
 llegar rápido a lo que necesito.
 
 Criterios de aceptación:
-- [ ] La pantalla del proyecto tiene una barra lateral a la izquierda con una sección por tipo de
-      elemento versionable: "Historias de usuario" y "Diagramas".
-- [ ] La sección "Diagramas" muestra un árbol: cada diagrama con sus actividades, y cada actividad con
-      sus actividades internas, en todos los niveles.
+- [ ] La pantalla del proyecto tiene una barra lateral a la izquierda con "Información del proyecto"
+      y un acordeón por tipo de elemento versionable: "Historias de usuario" y "Diagramas de
+      actividades".
+- [ ] Solo un acordeón está abierto a la vez: abrir uno cierra el otro. El acordeón abierto ocupa el
+      alto que dejan libre los demás dentro de la barra; si su contenido no entra, se desplaza dentro
+      del acordeón (la barra no crece hasta el infinito).
+- [ ] El acordeón "Diagramas de actividades" muestra un árbol: cada diagrama con sus actividades, y
+      cada actividad con sus actividades internas, en todos los niveles.
+- [ ] Cada elemento del árbol que tiene actividades internas se puede desplegar y plegar. Al entrar,
+      los niveles arrancan plegados, salvo el camino hasta el elemento que se está viendo.
 - [ ] Seleccionar un elemento en la barra abre su detalle en el panel principal.
 - [ ] La barra respeta el build que se está mirando: en una versión cerrada muestra los elementos de
       ese momento.

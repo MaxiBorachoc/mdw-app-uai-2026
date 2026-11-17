@@ -468,14 +468,7 @@ export function EspacioProyecto({
         descripcion={proyecto.descripcion}
         ownerNombre={proyecto.ownerNombre}
         creadoEn={proyecto.creadoEn}
-        versionVista={cerrada ? `Versión ${buildVisto.etiqueta}` : "En desarrollo"}
         miembros={miembros}
-        totales={{
-          historias: v.historias.length,
-          diagramas: v.actividades.filter((a) => a.padreId === null).length,
-          actividades: v.actividades.filter((a) => a.padreId !== null).length,
-          flechas: v.conexiones.length,
-        }}
         puedeEditar={puedeEditar}
       />
     );
@@ -531,7 +524,8 @@ export function EspacioProyecto({
       )}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[17rem_minmax(0,1fr)]">
-        <aside>
+        {/* En pantallas anchas la barra queda fija debajo de la barra del proyecto. */}
+        <aside className="lg:sticky lg:top-24 lg:self-start">
           <BarraLateral
             historias={historiasLista}
             actividades={v.actividades}
