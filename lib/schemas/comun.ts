@@ -33,3 +33,7 @@ export const FechaSchema = z
 // H15: en proceso (tiene un build en desarrollo) o finalizado (no tiene).
 export const EstadoProyectoSchema = z.enum(["EN_PROCESO", "FINALIZADO"]);
 export type EstadoProyecto = z.infer<typeof EstadoProyectoSchema>;
+
+// H16: actividad o nodo de control de UML (ver docs/spec.md seccion 3).
+export const TipoNodoSchema = z.enum(["ACTIVIDAD", "INICIAL", "FINAL_ACTIVIDAD", "FINAL_FLUJO", "DECISION", "BIFURCACION"]);
+export type TipoNodo = z.infer<typeof TipoNodoSchema>;

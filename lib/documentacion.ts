@@ -12,9 +12,10 @@
 import type { ActividadContenido } from "@/lib/schemas/actividad";
 import type { Cambios } from "@/lib/schemas/cambios";
 import type { ConexionContenido } from "@/lib/schemas/conexionActividad";
+import type { TipoNodo } from "@/lib/schemas/comun";
 import type { HistoriaContenido } from "@/lib/schemas/historiaUsuario";
 
-export type { ActividadContenido, Cambios, ConexionContenido, HistoriaContenido };
+export type { ActividadContenido, Cambios, ConexionContenido, HistoriaContenido, TipoNodo };
 
 type Elemento<C> = C & { id: string; numeroVersion: number; eliminado: boolean };
 
@@ -147,6 +148,37 @@ export function conexionesQueTocan(conexiones: Conexion[], actividadIds: Set<str
 }
 
 // ---------------------------------------------------------------------------
+// Tipos de nodo (H16)
+// ---------------------------------------------------------------------------
+
+export const etiquetaTipoNodo: Record<TipoNodo, string> = {
+  ACTIVIDAD: "Actividad",
+  INICIAL: "Nodo inicial",
+  FINAL_ACTIVIDAD: "Nodo final de actividad",
+  FINAL_FLUJO: "Nodo final de flujo",
+  DECISION: "Decisión",
+  BIFURCACION: "Bifurcación",
+};
+
+/** Un nodo de control de UML: no es una actividad (no tiene nombre ni diagrama interno). */
+export const esNodoDeControl = (tipo: TipoNodo) => tipo !== "ACTIVIDAD";
+
+/** Cómo se nombra un nodo en avisos e historiales: su nombre, o su tipo si es de control. */
+export const nombreNodo = (a: { tipo: TipoNodo; nombre: string }) =>
+  esNodoDeControl(a.tipo) ? etiquetaTipoNodo[a.tipo] : a.nombre;
+
+/**
+ * H16: por qué no se puede crear una flecha entre estos nodos, o null si se puede.
+ * Solo se validan las reglas de UML que nunca tienen sentido; el resto queda libre.
+ */
+export function motivoFlechaNoPermitida(origen: { id: string; tipo: TipoNodo }, destino: { id: string; tipo: TipoNodo }): string | null {
+  if (origen.id === destino.id && esNodoDeControl(origen.tipo)) return "Un nodo de control no puede tener una flecha hacia sí mismo";
+  if (destino.tipo === "INICIAL") return "A un nodo inicial no le entran flechas";
+  if (origen.tipo === "FINAL_ACTIVIDAD" || origen.tipo === "FINAL_FLUJO") return "De un nodo final no salen flechas";
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Títulos de historias
 // ---------------------------------------------------------------------------
 
@@ -196,6 +228,7 @@ function igualesActividad(a: ActividadContenido & { eliminado: boolean }, b: Act
   const hb = [...b.historiaIds].sort();
   return (
     a.eliminado === b.eliminado &&
+    a.tipo === b.tipo &&
     a.nombre === b.nombre &&
     a.documentacion === b.documentacion &&
     a.padreId === b.padreId &&
@@ -207,12 +240,14 @@ function igualesActividad(a: ActividadContenido & { eliminado: boolean }, b: Act
 }
 
 function igualesConexion(a: ConexionContenido & { eliminado: boolean }, b: ConexionContenido & { eliminado: boolean }) {
-  return a.eliminado === b.eliminado && a.origenId === b.origenId && a.destinoId === b.destinoId;
+  return (
+    a.eliminado === b.eliminado && a.origenId === b.origenId && a.destinoId === b.destinoId && a.guarda === b.guarda
+  );
 }
 
 const nombreDe = {
   historia: (h: { titulo: string }) => h.titulo,
-  actividad: (a: { nombre: string }) => a.nombre,
+  actividad: nombreNodo,
 };
 
 /**
@@ -310,6 +345,10 @@ export function aplicarCambios(
       });
       return false;
     });
+    // H16: el tipo de un nodo se elige al crearlo y no cambia.
+    if (previa && previa.tipo !== nueva.tipo) {
+      invalidos.push({ tipo: "ACTIVIDAD", id: a.id, nombre: nombreNodo(previa), motivo: "El tipo de un nodo no cambia" });
+    }
     actividades.set(id, nueva);
     tocadas.actividades.add(id);
   }
@@ -380,8 +419,11 @@ export function aplicarCambios(
     if (a.padreId !== null) {
       const padre = actividades.get(a.padreId);
       if (!padre || padre.eliminado) {
-        conflictos.push({ tipo: "ACTIVIDAD", id, nombre: a.nombre, motivo: "La actividad padre ya no existe" });
+        conflictos.push({ tipo: "ACTIVIDAD", id, nombre: nombreNodo(a), motivo: "La actividad padre ya no existe" });
         continue;
+      }
+      if (esNodoDeControl(padre.tipo)) {
+        invalidos.push({ tipo: "ACTIVIDAD", id, nombre: nombreNodo(a), motivo: "Un nodo de control no tiene diagrama interno" });
       }
       if (!puedeMoverA(actividadesVigentes, id, a.padreId) || ancestros(actividadesVigentes, id).includes(id)) {
         invalidos.push({
@@ -425,6 +467,8 @@ export function aplicarCambios(
         motivo: "Una flecha solo une actividades del mismo diagrama",
       });
     }
+    const motivo = motivoFlechaNoPermitida(origen, destino);
+    if (motivo) invalidos.push({ tipo: "CONEXION", id, nombre: "Flecha", motivo });
     if ((flechasVigentes.get(`${c.origenId}→${c.destinoId}`) ?? []).length > 1) {
       invalidos.push({ tipo: "CONEXION", id, nombre: "Flecha", motivo: "Ya existe una flecha con ese origen y destino" });
     }

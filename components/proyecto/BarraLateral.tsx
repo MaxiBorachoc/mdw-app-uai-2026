@@ -82,7 +82,8 @@ export function BarraLateral({
   }, [claveSeleccion]);
 
   const hijas = new Map<string | null, Actividad[]>();
-  for (const a of actividades) hijas.set(a.padreId, [...(hijas.get(a.padreId) ?? []), a]);
+  // H16: los nodos de control solo se ven en el lienzo, no en la barra.
+  for (const a of actividades) if (a.tipo === "ACTIVIDAD") hijas.set(a.padreId, [...(hijas.get(a.padreId) ?? []), a]);
 
   const elegida = (tipo: "historia" | "actividad", id: string) => seleccion.tipo === tipo && seleccion.id === id;
 
