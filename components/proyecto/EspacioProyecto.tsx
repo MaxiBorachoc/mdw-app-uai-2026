@@ -54,6 +54,8 @@ import {
 } from "@/lib/documentacion";
 import { contenidoActividadSchema } from "@/lib/schemas/actividad";
 import { contenidoHistoriaSchema } from "@/lib/schemas/historiaUsuario";
+import type { EntregableVista } from "@/lib/schemas/entregable";
+import type { DefinicionProyecto } from "@/lib/schemas/proyecto";
 import type { CerrarVersionProyectoInput } from "@/lib/schemas/versionProyecto";
 import { cantidad } from "@/lib/utils";
 
@@ -74,18 +76,25 @@ export function EspacioProyecto({
   buildVisto,
   estado,
   desde,
+  entregables,
+  hoy,
 }: {
-  proyecto: { id: string; nombre: string; descripcion: string; ownerNombre: string; creadoEn: string };
+  proyecto: { id: string; ownerNombre: string; creadoEn: string; definicion: DefinicionProyecto };
   miembros: { id: string; nombre: string; email: string; rol: RolProyecto }[];
   rol: RolProyecto;
   builds: BuildResumen[];
   buildVisto: BuildResumen;
   estado: Estado;
   desde: string;
+  entregables: EntregableVista[];
+  // La fecha de hoy en Argentina, calculada en el servidor (estado de los entregables).
+  hoy: string;
 }) {
   const router = useRouter();
   const cerrada = buildVisto.estado === "CERRADA";
   const puedeEditar = !cerrada && rol !== "READER";
+  // H13 y H14: la definición y los entregables los edita solo el dueño.
+  const puedeEditarProyecto = !cerrada && rol === "OWNER";
 
   const [borrador, setBorrador] = useState<Borrador>(() => crearBorrador(estado));
   const [seleccion, setSeleccion] = useState<Seleccion>({ tipo: "proyecto" });
@@ -465,10 +474,14 @@ export function EspacioProyecto({
   } else {
     panel = (
       <PanelProyecto
-        descripcion={proyecto.descripcion}
+        proyectoId={proyecto.id}
+        definicion={proyecto.definicion}
         ownerNombre={proyecto.ownerNombre}
         creadoEn={proyecto.creadoEn}
         miembros={miembros}
+        entregables={entregables}
+        hoy={hoy}
+        puedeEditarProyecto={puedeEditarProyecto}
         puedeEditar={puedeEditar}
       />
     );
@@ -478,7 +491,7 @@ export function EspacioProyecto({
     <div className="mx-auto w-full max-w-7xl px-4 pb-10 sm:px-6">
       <BarraProyecto
         proyectoId={proyecto.id}
-        nombre={proyecto.nombre}
+        nombre={proyecto.definicion.nombre}
         rol={rol}
         builds={builds}
         buildVisto={buildVisto}
@@ -556,6 +569,9 @@ export function EspacioProyecto({
           abierto={cierreAbierto}
           sugerencia={sugerencia}
           hayBorrador={conCambios}
+          entregables={entregables}
+          hoy={hoy}
+          esDueno={rol === "OWNER"}
           onCerrar={() => setCierreAbierto(false)}
           onConfirmar={cerrarVersion}
         />

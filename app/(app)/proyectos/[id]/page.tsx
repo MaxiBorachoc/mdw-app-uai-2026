@@ -12,9 +12,11 @@ import { EspacioProyecto } from "@/components/proyecto/EspacioProyecto";
 import type { BuildResumen } from "@/components/proyecto/BarraProyecto";
 import { requerirUsuario } from "@/lib/auth";
 import { ahoraEnLaBase, cargarEstado, listarBuilds } from "@/lib/db/documentacion";
+import { listarEntregables } from "@/lib/db/entregables";
 import { obtenerProyectoParaVista } from "@/lib/db/vistas-proyectos";
 import { vigentes } from "@/lib/documentacion";
 import { ordenBuildSchema } from "@/lib/schemas/cambios";
+import { hoyEnArgentina } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +44,7 @@ export default async function ProyectoPage({ params, searchParams }: Contexto) {
       nombre: b.nombre,
       descripcion: b.descripcion,
       cerradaEl: b.cerradaEl?.toISOString() ?? null,
+      entregable: b.entregable?.nombre ?? null,
     }),
   );
 
@@ -52,9 +55,10 @@ export default async function ProyectoPage({ params, searchParams }: Contexto) {
   }
   if (!visto) notFound();
 
-  const [estado, desde] = await Promise.all([
+  const [estado, desde, entregables] = await Promise.all([
     cargarEstado(id, visto.estado === "CERRADA" ? visto.orden : null),
     ahoraEnLaBase(),
+    listarEntregables(id),
   ]);
 
   return (
@@ -67,10 +71,17 @@ export default async function ProyectoPage({ params, searchParams }: Contexto) {
         key={visto.estado === "EN_DESARROLLO" ? "en-desarrollo" : visto.orden}
         proyecto={{
           id: proyecto.id,
-          nombre: proyecto.nombre,
-          descripcion: proyecto.descripcion,
           ownerNombre: proyecto.owner.nombre,
           creadoEn: proyecto.creadoEn.toISOString(),
+          definicion: {
+            nombre: proyecto.nombre,
+            descripcion: proyecto.descripcion,
+            problemaNegocio: proyecto.problemaNegocio,
+            objetivo: proyecto.objetivo,
+            limitesExclusiones: proyecto.limitesExclusiones,
+            fechaInicio: proyecto.fechaInicio,
+            fechaFinEstimada: proyecto.fechaFinEstimada,
+          },
         }}
         miembros={proyecto.miembros.map((m) => ({ id: m.usuario.id, nombre: m.usuario.nombre, email: m.usuario.email, rol: m.rol }))}
         rol={membresia.rol}
@@ -78,6 +89,8 @@ export default async function ProyectoPage({ params, searchParams }: Contexto) {
         buildVisto={visto}
         estado={vigentes(estado)}
         desde={desde.toISOString()}
+        entregables={entregables}
+        hoy={hoyEnArgentina()}
       />
     </>
   );

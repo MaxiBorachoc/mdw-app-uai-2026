@@ -86,7 +86,14 @@ PUT {{baseUrl}}/api/proyectos/{{proyectoId}}
 Cookie: {{sesion}}
 Content-Type: application/json
 
-{ "nombre": "Nombre editado", "descripcion": "Descripción editada" }
+{ "nombre": "Nombre editado", "descripcion": "Descripción editada", "problemaNegocio": "La documentación se pierde entre entregas", "objetivo": "Versionar la documentación de cada entrega", "limitesExclusiones": ["No incluye la gestión del código"], "fechaInicio": "2026-08-10", "fechaFinEstimada": "2026-11-24" }
+
+### 400 fecha estimada de fin anterior a la de inicio (H13)
+PUT {{baseUrl}}/api/proyectos/{{proyectoId}}
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "nombre": "Proyecto", "fechaInicio": "2026-11-10", "fechaFinEstimada": "2026-11-01" }
 
 ### 400 nombre vacío
 PUT {{baseUrl}}/api/proyectos/{{proyectoId}}
@@ -209,14 +216,73 @@ Cookie: {{sesion}}
 GET {{baseUrl}}/api/proyectos/{{proyectoId}}/historias/no-existe/revisiones
 Cookie: {{sesion}}
 
+# ---------- Entregables (H14) ----------
+
+### GET entregables — 200 feliz
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/entregables
+Cookie: {{sesion}}
+
+### POST entregable — 201 feliz
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/entregables
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "nombre": "Primera entrega", "descripcion": "Historias y diagramas del proceso principal", "fechaEstimada": "2026-11-17" }
+
+### POST entregable — 400 sin fecha estimada
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/entregables
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "nombre": "Sin fecha" }
+
+### POST entregable — 403 soy miembro pero no owner
+POST {{baseUrl}}/api/proyectos/{{proyectoLectorId}}/entregables
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "nombre": "X", "fechaEstimada": "2026-11-17" }
+
+### PUT entregable — 200 marcarlo como entregado
+PUT {{baseUrl}}/api/proyectos/{{proyectoId}}/entregables/PEGAR_ID_ENTREGABLE
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "nombre": "Primera entrega", "fechaEstimada": "2026-11-17", "entregado": true, "fechaEntrega": "2026-11-14" }
+
+### PUT entregable — 400 fecha de entrega posterior a hoy
+PUT {{baseUrl}}/api/proyectos/{{proyectoId}}/entregables/PEGAR_ID_ENTREGABLE
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "nombre": "Primera entrega", "fechaEstimada": "2026-11-17", "entregado": true, "fechaEntrega": "2999-01-01" }
+
+### DELETE entregable — 409 lo referencia una versión cerrada (204 si no tiene versiones)
+DELETE {{baseUrl}}/api/proyectos/{{proyectoId}}/entregables/PEGAR_ID_ENTREGABLE
+Cookie: {{sesion}}
+
 # ---------- POST /api/proyectos/:id/cerrar-version ----------
 
-### 200 feliz (crea 1.0.0; correr una sola vez por proyecto, después de confirmar algún cambio)
+### 200 feliz (crea 1.0.0; correr una sola vez por proyecto, después de confirmar algún cambio y crear un entregable)
 POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
 Cookie: {{sesion}}
 Content-Type: application/json
 
-{ "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 0, "nombre": "Primera entrega" }
+{ "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 0, "nombre": "Primera entrega", "entregableId": "PEGAR_ID_ENTREGABLE" }
+
+### 400 sin entregable
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 1 }
+
+### 409 ENTREGABLE_INEXISTENTE (o SIN_ENTREGABLES si el proyecto no tiene ninguno)
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "numeroVersion": 1, "numeroBuild": 0, "numeroPatch": 1, "entregableId": "no-existe" }
 
 ### 400 combinación 0.0.0
 POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cerrar-version

@@ -21,6 +21,8 @@ export type BuildResumen = {
   nombre: string | null;
   descripcion: string | null;
   cerradaEl: string | null;
+  // H8: el entregable al que corresponde (solo las cerradas).
+  entregable: string | null;
 };
 
 export type EstadoConfirmar = "sin-cambios" | "con-cambios" | "conflicto";
@@ -165,8 +167,8 @@ export function BarraProyecto({
         <p className="mt-2 text-sm text-muted-foreground">
           Estás viendo la versión {buildVisto.etiqueta}
           {buildVisto.nombre ? ` (${buildVisto.nombre})` : ""}
-          {buildVisto.cerradaEl ? `, cerrada el ${formatoFecha.format(new Date(buildVisto.cerradaEl))}` : ""}. Todo está en
-          solo lectura.
+          {buildVisto.cerradaEl ? `, cerrada el ${formatoFecha.format(new Date(buildVisto.cerradaEl))}` : ""}
+          {buildVisto.entregable ? `, del entregable “${buildVisto.entregable}”` : ""}. Todo está en solo lectura.
           {buildVisto.descripcion ? ` ${buildVisto.descripcion}` : ""}
         </p>
       )}

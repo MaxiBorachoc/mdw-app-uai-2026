@@ -145,6 +145,7 @@ export async function listarBuilds(proyectoId: string) {
       nombre: true,
       descripcion: true,
       cerradaEl: true,
+      entregable: { select: { id: true, nombre: true } },
     },
   });
 }

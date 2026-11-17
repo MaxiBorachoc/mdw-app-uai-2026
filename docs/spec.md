@@ -31,9 +31,9 @@ desarrollo.
 
 | Rol | Quién es | Qué puede hacer |
 |---|---|---|
-| **Dueño** | Creador y titular del proyecto. En la práctica suele ser el PO o el PM | Todo lo que hace un Editor, y además administrar colaboradores y roles, y editar o eliminar el proyecto |
+| **Dueño** | Creador y titular del proyecto. En la práctica suele ser el PO o el PM | Todo lo que hace un Editor, y además administrar colaboradores y roles, editar la definición del proyecto y sus entregables, y eliminar el proyecto |
 | **Editor** | Integrante que trabaja sobre la documentación: analista funcional, arquitecto, desarrollador | Crear, modificar y eliminar historias de usuario, actividades y flechas, y cerrar versiones de proyecto |
-| **Lector** | Docente, ayudante o integrante que solo consulta | Ver la documentación actual, el historial de cada elemento y las versiones de proyecto cerradas, sin modificar nada |
+| **Lector** | Docente, ayudante o integrante que solo consulta | Ver la documentación actual, el historial de cada elemento, las versiones de proyecto cerradas, la definición del proyecto y sus entregables, sin modificar nada |
 
 Todos los roles tienen cuenta. La diferencia está en los permisos dentro de cada proyecto, no en el
 tipo de usuario global. Un proyecto tiene exactamente un dueño: quien lo creó. El dueño aparece en
@@ -87,12 +87,13 @@ que lo referencian.
 | Entidad | Qué representa | Se relaciona con |
 |---|---|---|
 | **Usuario** | Persona con cuenta en el sistema | MiembroProyecto (1-N), Proyecto (N-N a través de MiembroProyecto), revisiones que escribió |
-| **Proyecto** | Espacio de trabajo donde vive la documentación | MiembroProyecto (1-N), elementos versionables (1-N), VersionProyecto (1-N) |
+| **Proyecto** | Espacio de trabajo donde vive la documentación. Guarda además su **definición** (ver abajo) | MiembroProyecto (1-N), elementos versionables (1-N), VersionProyecto (1-N), Entregable (1-N) |
+| **Entregable** | Algo que el proyecto se compromete a entregar, con una fecha estimada. Lo planifica el dueño y se marca como entregado cuando se entrega | Proyecto (N-1), VersionProyecto (1-N: los builds cerrados que lo documentan) |
 | **MiembroProyecto** | Relación entre un usuario y un proyecto: rol asignado y estado de la invitación (pendiente, aceptada o rechazada) | Usuario (N-1), Proyecto (N-1) |
 | **HistoriaUsuario** / **HistoriaUsuarioVersion** | Identidad y revisiones de una historia de usuario. El título es único dentro del proyecto | Proyecto (N-1), actividades que la referencian |
 | **Actividad** / **ActividadVersion** | Identidad y revisiones de una actividad. Una actividad **sin padre** es un **diagrama**; las que tienen padre son los nodos de su diagrama interno | Proyecto (N-1), actividad padre (N-1 opcional), historias asociadas (N-N), flechas |
 | **ConexionActividad** / **ConexionActividadVersion** | Identidad y revisiones de una flecha entre dos actividades del mismo diagrama | Actividad origen (N-1), actividad destino (N-1), Proyecto (N-1) |
-| **VersionProyecto** | Un **build** del proyecto. Está `en_desarrollo` (sin número, es donde se trabaja; siempre hay exactamente una por proyecto) o `cerrada` (identificada por `Version.Build.Patch`). Tiene un número de orden correlativo dentro del proyecto (1, 2, 3...) que ordena los builds. No tiene autor | Proyecto (N-1), revisiones confirmadas durante ese build (1-N) |
+| **VersionProyecto** | Un **build** del proyecto. Está `en_desarrollo` (sin número, es donde se trabaja; siempre hay exactamente una por proyecto) o `cerrada` (identificada por `Version.Build.Patch`). Tiene un número de orden correlativo dentro del proyecto (1, 2, 3...) que ordena los builds. No tiene autor. Al cerrarse queda vinculado a un entregable | Proyecto (N-1), revisiones confirmadas durante ese build (1-N), Entregable (N-1; obligatorio al cerrar) |
 
 **Relaciones N-N:** un usuario participa en muchos proyectos y un proyecto tiene muchos usuarios, a
 través de `MiembroProyecto`. Una actividad puede asociarse a varias historias y una historia tener
@@ -111,6 +112,37 @@ calculada a partir de las actividades que la referencian en el build que se est�
 marcada **eliminado**. Desde ese build el elemento deja de aparecer; los builds anteriores lo siguen
 mostrando tal como estaba, porque su revisión vigente en ellos no está marcada como eliminada.
 
+**Definición del proyecto.** Además de nombre y descripción, el proyecto guarda los datos que el dueño
+redacta al definirlo, siguiendo la lista de verificación del enfoque de un proyecto (Gray y Larson,
+*Administración de proyectos*). Todos son opcionales:
+
+| Campo | Qué guarda |
+|---|---|
+| **Problema de negocio** | El problema u oportunidad que origina el proyecto |
+| **Objetivo del proyecto** | Qué se busca lograr |
+| **Límites y exclusiones** | Lista de lo que el proyecto no incluye |
+| **Fecha de inicio** y **fecha estimada de fin** | Fechas (sin hora) |
+
+La definición **no se versiona**: no pertenece a ningún build y al guardarla se reemplaza la anterior.
+Al mirar una versión cerrada se ve la definición actual.
+
+**Entregables y builds.** Un build documenta cómo tiene que funcionar lo que se va a entregar, no
+algo ya terminado: el equipo puede documentar builds de entregas futuras que todavía no se
+empezaron a desarrollar. Por eso la fecha de cierre de un build (`cerradaEl`) solo dice cuándo se
+terminó de documentar, y las fechas de la entrega viven en el **entregable**:
+
+| Campo del entregable | Qué guarda |
+|---|---|
+| **Nombre** | Obligatorio |
+| **Descripción** | Opcional. Por ejemplo, que un entregable es la suma de otros que se hacen en paralelo |
+| **Fecha estimada de entrega** | Obligatoria |
+| **Entregado** | Sí o no |
+| **Fecha de entrega** | Obligatoria si está entregado |
+
+Cada build cerrado apunta a un entregable, y un entregable puede tener varios builds (por ejemplo, el
+que lo documenta y otro que lo corrige). El **estado** del entregable no se carga: se calcula
+(ver sección 6).
+
 **`VersionProyecto` no tiene un "autor".** Un build documenta el estado del proyecto en un momento, no
 algo que una persona firma; por eso no se le atribuye autoría como a una revisión. Quién la cerró no
 se muestra ni se comunica por mail.
@@ -128,6 +160,11 @@ se muestra ni se comunica por mail.
 | Documentación de actividad | 5000 caracteres |
 | Nombre de versión de proyecto | 100 caracteres |
 | Descripción de versión de proyecto | 1000 caracteres |
+| Problema de negocio | 2000 caracteres |
+| Objetivo del proyecto | 1000 caracteres |
+| Cada límite o exclusión (sin límite de cantidad) | 300 caracteres |
+| Nombre de entregable | 100 caracteres |
+| Descripción de entregable | 1000 caracteres |
 
 **Reglas de borrado en la base.** El producto nunca borra elementos versionables (los marca como
 eliminados). Estas reglas aplican cuando se borra un registro de la base:
@@ -137,10 +174,11 @@ eliminados). Estas reglas aplican cuando se borra un registro de la base:
 | Usuario (no dueño de ningún proyecto) | sus `MiembroProyecto` | se borran en cascada |
 | Usuario que es dueño de algún proyecto | ese `Proyecto` | **no se permite** borrar el usuario mientras siga siendo dueño de un proyecto (no existe una funcionalidad para transferir la titularidad, ver sección 9) |
 | Usuario que escribió revisiones | esas revisiones | **no se permite**: una revisión conserva su autor. Si el usuario deja de ser colaborador, sus revisiones lo siguen mostrando como autor |
-| Proyecto | sus colaboradores, sus elementos versionables con todas sus revisiones y sus `VersionProyecto` (incluidas las **cerradas**) | se borra todo en cascada, sin excepción. Por eso la UI advierte que se pierde todo (incluido el historial) y pide una segunda confirmación |
+| Proyecto | sus colaboradores, sus elementos versionables con todas sus revisiones, sus `VersionProyecto` (incluidas las **cerradas**) y sus entregables | se borra todo en cascada, sin excepción. Por eso la UI advierte que se pierde todo (incluido el historial) y pide una segunda confirmación |
 | Identidad de un elemento | sus revisiones | se borran en cascada (solo ocurre al borrar el proyecto) |
 | Actividad referenciada como padre, origen o destino, o historia referenciada desde una actividad | la revisión que la referencia | **no se permite**: una revisión nunca queda con una referencia rota |
 | `VersionProyecto` con revisiones confirmadas en ese build | esas revisiones | **no se permite** |
+| Entregable al que apunta algún build cerrado | ese build | **no se permite**: un build cerrado nunca queda sin su entregable |
 
 ## 4. Historias de usuario
 
@@ -361,6 +399,12 @@ Criterios de aceptación:
 - [ ] El formulario de cierre propone un `Version.Build.Patch` (mismo Version y Build que la última
       versión cerrada, con Patch + 1; o `0.0.1` si no se cerró ninguna), editable antes de confirmar,
       y un nombre y una descripción opcionales.
+- [ ] El formulario pide elegir, de forma obligatoria, a qué entregable del proyecto corresponde el
+      build (ver H14). Cada entregable se muestra con su fecha estimada y su estado. Se puede elegir
+      cualquiera, incluso uno ya entregado (por ejemplo, un build que lo corrige).
+- [ ] Caso de error: si el proyecto todavía no tiene ningún entregable, no se puede cerrar la versión y
+      el sistema avisa que primero el dueño tiene que crear uno.
+- [ ] Caso de error: el entregable elegido tiene que existir y pertenecer al mismo proyecto.
 - [ ] Al confirmar, el build en desarrollo pasa a `cerrada` con esos datos y el sistema abre
       automáticamente el build en desarrollo siguiente. No se copia ninguna documentación: el estado
       del build cerrado queda definido por las revisiones confirmadas hasta ese momento (ver la regla
@@ -387,7 +431,8 @@ Criterios de aceptación:
       documentación exactamente como estaba al cerrarla: las historias con su contenido, los diagramas
       con sus actividades **en las mismas posiciones**, la misma jerarquía de diagramas anidados, las
       mismas flechas y las mismas asociaciones con historias.
-- [ ] Se ve el número, el nombre, la descripción y la fecha de cierre de la versión.
+- [ ] Se ve el número, el nombre, la descripción y la fecha de cierre de la versión, y el entregable al
+      que corresponde.
 - [ ] Un botón "Volver a la versión actual" regresa al build en desarrollo.
 - [ ] Caso de error: si el usuario no pertenece al proyecto, el sistema rechaza el acceso.
 
@@ -459,6 +504,51 @@ Criterios de aceptación:
 
 > **Lector:** ve la misma pantalla en modo lectura, sin borrador ni botones de edición.
 
+### H13 - Definir el proyecto
+
+**Como** dueño, **quiero** dejar escrito el problema de negocio, el objetivo, los límites y las fechas
+del proyecto, **para** que todo el equipo entienda por qué existe y qué incluye.
+
+Criterios de aceptación:
+- [ ] En "Información del proyecto", el dueño edita nombre, descripción, problema de negocio, objetivo
+      del proyecto, límites y exclusiones (una lista), fecha de inicio y fecha estimada de fin, y los
+      guarda con un botón propio (no forma parte de "Confirmar cambios" ni de ningún build).
+- [ ] Todos los campos son opcionales salvo el nombre.
+- [ ] El resto de los colaboradores ve los mismos datos en solo lectura.
+- [ ] Al mirar una versión cerrada se ve la definición actual del proyecto.
+- [ ] Caso de error: si un campo supera su longitud máxima (ver sección 3), no se guarda y se muestra
+      el motivo.
+- [ ] Caso de error: si la fecha estimada de fin es anterior a la fecha de inicio, no se guarda y se
+      muestra el motivo.
+- [ ] Caso de error: si quien intenta guardar no es el dueño, el sistema rechaza la acción aunque la
+      llamada no venga de la interfaz.
+
+### H14 - Planificar entregables y registrar las entregas
+
+**Como** dueño, **quiero** planificar los entregables del proyecto con su fecha estimada y marcar
+cuándo se entregó cada uno, **para** que el equipo vea si vamos atrasados contra lo comprometido.
+
+Criterios de aceptación:
+- [ ] En "Información del proyecto" se listan los entregables, ordenados por fecha estimada, con su
+      estado y los builds cerrados que apuntan a cada uno.
+- [ ] El dueño crea un entregable con nombre, descripción opcional y fecha estimada de entrega, y
+      puede editarlo después.
+- [ ] El dueño marca un entregable como entregado indicando la fecha de entrega, y puede desmarcarlo
+      (por ejemplo, si el cliente lo rechaza). No hace falta que tenga builds cerrados.
+- [ ] El estado se calcula solo: **Pendiente**, **Atrasado**, **Entregado a tiempo** o **Entregado con
+      atraso** (ver sección 6).
+- [ ] El dueño puede eliminar un entregable al que no apunta ningún build cerrado.
+- [ ] El resto de los colaboradores ve los entregables y su estado en solo lectura.
+- [ ] Caso de error: si falta el nombre o la fecha estimada, o un campo supera su longitud máxima, no
+      se guarda y se muestra el motivo.
+- [ ] Caso de error: si se marca como entregado sin fecha de entrega, o con una fecha que todavía no
+      llegó (posterior a hoy), no se guarda y se muestra el motivo. Sí puede ser posterior a la fecha
+      estimada: en ese caso queda "Entregado con atraso".
+- [ ] Caso de error: si se intenta eliminar un entregable al que apunta algún build cerrado, no se
+      elimina y se avisa qué versiones lo referencian.
+- [ ] Caso de error: si quien intenta crear, editar o eliminar un entregable no es el dueño, el sistema
+      rechaza la acción aunque la llamada no venga de la interfaz.
+
 ## 5. Flujo principal
 
 ### Mapa de pantallas
@@ -470,7 +560,7 @@ Los permisos se verifican siempre en el servidor; ocultar una acción en la UI n
 |---|---|---|---|
 | Login | `/login` | Público | Iniciar sesión con Google. |
 | Mis proyectos | `/proyectos` | Usuario autenticado | Listar únicamente proyectos con membresía aceptada y mostrar el rol en cada uno, y crear un proyecto nuevo (H1): quien lo crea queda como Dueño. |
-| Espacio del proyecto | `/proyectos/[id]` | Dueño, Editor o Lector aceptado del proyecto | Barra lateral con historias y diagramas (H11), panel con el elemento elegido (H3 a H7, H10), selector de versión y cierre (H8, H9), y "Confirmar cambios" (H12). Dueño y Editor editan; el Lector solo consulta. |
+| Espacio del proyecto | `/proyectos/[id]` | Dueño, Editor o Lector aceptado del proyecto | Barra lateral con historias y diagramas (H11), panel con el elemento elegido (H3 a H7, H10), información del proyecto con su definición y sus entregables (H13, H14), selector de versión y cierre (H8, H9), y "Confirmar cambios" (H12). Dueño y Editor editan la documentación; solo el Dueño edita la definición y los entregables; el Lector solo consulta. |
 | Versión cerrada | `/proyectos/[id]?build=<n>` | Dueño, Editor o Lector aceptado del proyecto | La misma pantalla en solo lectura, con la documentación del build `n` (H9). |
 | Proyecto no encontrado | `/proyectos/[id]` | Usuario autenticado sin acceso o id inexistente | Mostrar el mismo 404 para no revelar si un proyecto ajeno existe. |
 | Sistema visual | `/sistema` | Usuario autenticado | Revisar componentes, foco, contraste y estados sin modificar datos reales. |
@@ -485,15 +575,20 @@ El recorrido completo, paso a paso, del flujo que da valor al sistema (no un ABM
 
 1. El dueño crea un proyecto e invita colaboradores con rol editor o lector. Cada invitación queda
    pendiente hasta que el destinatario la acepta desde el correo recibido (ver H2 y sección 8).
-2. Un editor registra historias de usuario con descripción y criterios de aceptación (H3).
-3. El equipo crea diagramas, los llena de actividades, las conecta con flechas y las asocia a las
+2. El dueño define el proyecto (problema de negocio, objetivo, límites y fechas) y planifica los
+   entregables con su fecha estimada (H13, H14).
+3. Un editor registra historias de usuario con descripción y criterios de aceptación (H3).
+4. El equipo crea diagramas, los llena de actividades, las conecta con flechas y las asocia a las
    historias que implementan (H5, H6, H10).
-4. Si una actividad necesita más detalle, se abre su diagrama interno y se crean subactividades (H7).
-5. Cada cambio confirmado crea una revisión nueva del elemento y conserva las anteriores (H4, H12).
-6. Antes de una entrega, parcial o demo, el dueño o un editor cierra la versión en desarrollo
-   asignándole `Version.Build.Patch` y nombre; el sistema abre automáticamente el build siguiente (H8).
-7. Más adelante, cualquier colaborador elige esa versión cerrada en el selector y ve la documentación
+5. Si una actividad necesita más detalle, se abre su diagrama interno y se crean subactividades (H7).
+6. Cada cambio confirmado crea una revisión nueva del elemento y conserva las anteriores (H4, H12).
+7. Cuando la documentación de un entregable está lista, el dueño o un editor cierra la versión en
+   desarrollo asignándole `Version.Build.Patch`, nombre y el entregable al que corresponde; el
+   sistema abre automáticamente el build siguiente (H8).
+8. Más adelante, cualquier colaborador elige esa versión cerrada en el selector y ve la documentación
    exactamente como estaba, diagramas incluidos (H9).
+9. Cuando se entrega, el dueño marca el entregable como entregado con su fecha, y el equipo ve si se
+   cumplió la fecha estimada (H14).
 
 ## 6. Reglas de negocio
 
@@ -573,13 +668,17 @@ revisar a mano.
   válida, no se repite dentro del proyecto, y cada cierre debe quedar por encima del anterior (orden
   `Version`, luego `Build`, luego `Patch`), aunque se pueden saltear números.
 - Una versión cerrada no tiene autor y no se puede editar.
+- Todo cierre se vincula a un entregable del mismo proyecto; sin entregables no se puede cerrar. El
+  vínculo queda fijo como el resto de la versión cerrada.
 
 ### Permisos
 
 - Dueño y Editor crean, modifican y eliminan historias, actividades y flechas, y cierran versiones.
 - El Lector consulta la documentación actual, el historial de cada elemento y las versiones cerradas,
   pero no puede crear, editar ni eliminar.
-- Solo el Dueño administra colaboradores y roles, y edita o elimina el proyecto.
+- Solo el Dueño administra colaboradores y roles, edita la definición del proyecto, crea, edita,
+  marca como entregados y elimina entregables, y elimina el proyecto.
+- Todos los colaboradores ven la definición del proyecto y sus entregables.
 
 ### Colaboradores
 
@@ -600,6 +699,26 @@ revisar a mano.
 - Borrar un proyecto borra en cascada toda su documentación, incluidas las versiones cerradas: no
   queda nada recuperable. Por eso el sistema le avisa al dueño y le pide una segunda confirmación.
 - No se implementan branches ni merges como Git; las revisiones son lineales.
+
+### Definición del proyecto y entregables
+
+- La definición del proyecto no se versiona ni pertenece a un build: guardarla reemplaza la anterior.
+- La fecha estimada de fin del proyecto no puede ser anterior a la fecha de inicio.
+- Un entregable tiene siempre fecha estimada de entrega. Si está entregado, tiene fecha de entrega,
+  que no puede ser posterior a hoy (sí a la fecha estimada: queda "Entregado con atraso").
+- **Estado de un entregable**, calculado con la fecha de hoy (hora de Argentina):
+
+  | Estado | Cuándo |
+  |---|---|
+  | Pendiente | No entregado y hoy no pasó la fecha estimada |
+  | Atrasado | No entregado y hoy ya pasó la fecha estimada |
+  | Entregado a tiempo | Entregado con fecha de entrega igual o anterior a la estimada |
+  | Entregado con atraso | Entregado con fecha de entrega posterior a la estimada |
+
+- Un entregable puede tener varios builds cerrados; un build cerrado, un solo entregable.
+- No se puede eliminar un entregable al que apunta algún build cerrado.
+- Marcar un entregable como entregado no exige que tenga builds cerrados: el dueño decide qué
+  significa entregarlo y puede explicarlo en la descripción.
 ## 7. Requisitos no funcionales
 
 ### Usabilidad
@@ -674,8 +793,9 @@ Lo que decidimos **no** hacer, o dejar para más adelante.
 - **Restaurar un build completo, o editar documentación parado en una versión cerrada.** Una versión
   cerrada se consulta en modo lectura (ver H9).
 - **Análisis y gestión de impactos al editar una versión vieja.** Requerimiento futuro: cuando se
-  habilite editar parado en una versión anterior, el sistema debería analizar si el cambio genera
-  conflictos con los diagramas de versiones posteriores y notificarlo.
+  habilite editar parado en una versión anterior (por ejemplo, para corregir un entregable que el
+  cliente rechazó), el sistema debería analizar si el cambio genera conflictos con los diagramas de
+  versiones posteriores, notificarlo, y definir cómo propagar la corrección a esas versiones.
 - **Fusión automática de cambios y edición colaborativa en tiempo real.** Dos usuarios pueden trabajar
   a la vez sobre el mismo proyecto, pero el sistema no combina sus cambios: si chocan, el segundo en
   confirmar recarga y rehace (ver H12).
@@ -683,9 +803,12 @@ Lo que decidimos **no** hacer, o dejar para más adelante.
   usuario, como en draw.io). Hoy una flecha se dibuja sola de borde a borde.
 - **Diagramas de entidades.** Se podrían sumar como otro tipo de elemento versionable, con el mismo
   mecanismo que las actividades. Queda pendiente.
-- **Entregables por versión y roles PO/PM.** A definir: planificar qué historias o entregables debe
-  incluir una versión antes de cerrarla y que el PO o el PM controlen su cumplimiento. Hoy una versión
-  es la foto de todo lo documentado al cerrarla, y el PO o PM usan el rol Dueño.
+- **Contenido planificado de cada entregable y roles PO/PM.** Hoy un entregable tiene fechas y builds
+  (H14), pero no se planifica qué historias tiene que incluir ni se controla que se cumplan. Tampoco
+  hay un rol aparte para el PO o el PM: usan el rol Dueño.
+- **Historial de la definición del proyecto.** Hoy guardarla reemplaza la anterior (H13).
+- **Más datos de planificación del proyecto:** presupuesto, hitos, riesgos, alineación estratégica,
+  ciclo de vida y prioridades de la triple restricción. Se evaluaron y quedaron afuera por ahora.
 - **Transferir la titularidad de un proyecto a otro usuario.** Hoy un proyecto queda a nombre de quien
   lo creó, y solo se puede eliminar (ver sección 3).
 - **Comentarios y aprobaciones.**

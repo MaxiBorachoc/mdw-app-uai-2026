@@ -11,7 +11,7 @@ import {
 } from "./versionProyecto";
 
 const letras = (n: number) => "a".repeat(n);
-const version = { numeroVersion: 1, numeroBuild: 0, numeroPatch: 0 };
+const version = { numeroVersion: 1, numeroBuild: 0, numeroPatch: 0, entregableId: "entregable-1" };
 
 describe("longitudes maximas del proyecto (H1)", () => {
   it("acepta un nombre y una descripcion justo en el maximo", () => {
