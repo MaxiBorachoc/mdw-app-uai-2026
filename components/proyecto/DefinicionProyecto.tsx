@@ -11,6 +11,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,12 +29,19 @@ export function DefinicionProyecto({
   ownerNombre,
   creadoEn,
   puedeEditar,
+  finalizado,
+  onFinalizar,
+  onReabrir,
 }: {
   proyectoId: string;
   definicion: Definicion;
   ownerNombre: string;
   creadoEn: string;
   puedeEditar: boolean;
+  // H15: el estado del proyecto; finalizar y reabrir los resuelve quien lo usa.
+  finalizado: boolean;
+  onFinalizar: () => void;
+  onReabrir: () => void;
 }) {
   const router = useRouter();
   const [editando, setEditando] = useState(false);
@@ -222,13 +230,22 @@ export function DefinicionProyecto({
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
         <div>
-          <CardTitle>Información del proyecto</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle>Información del proyecto</CardTitle>
+            <Badge variant={finalizado ? "neutral" : "blue"}>{finalizado ? "Finalizado" : "En proceso"}</Badge>
+          </div>
           <CardDescription>{definicion.descripcion || "Este proyecto todavía no tiene una descripción."}</CardDescription>
         </div>
         {puedeEditar && (
-          <Button type="button" size="sm" variant="outline" onClick={empezar}>
-            Editar
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={empezar}>
+              Editar
+            </Button>
+            {/* H15: solo el dueño finaliza y reabre. */}
+            <Button type="button" size="sm" variant="outline" onClick={finalizado ? onReabrir : onFinalizar}>
+              {finalizado ? "Reabrir proyecto" : "Finalizar proyecto"}
+            </Button>
+          </div>
         )}
       </CardHeader>
       <CardContent>

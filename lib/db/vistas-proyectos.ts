@@ -23,6 +23,7 @@ export async function listarProyectosParaVista(usuarioId: string) {
       nombre: true,
       descripcion: true,
       creadoEn: true,
+      estado: true,
       owner: { select: { id: true, nombre: true } },
       miembros: {
         where: { usuarioId, estado: "ACEPTADA" },
@@ -42,6 +43,7 @@ export async function listarProyectosParaVista(usuarioId: string) {
         nombre: proyecto.nombre,
         descripcion: proyecto.descripcion,
         creadoEn: proyecto.creadoEn,
+        estado: proyecto.estado,
         owner: proyecto.owner,
         rol,
       },

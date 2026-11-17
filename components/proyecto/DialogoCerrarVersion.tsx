@@ -28,6 +28,7 @@ export function DialogoCerrarVersion({
   entregables,
   hoy,
   esDueno,
+  modo = "cerrar",
   onCerrar,
   onConfirmar,
 }: {
@@ -37,6 +38,8 @@ export function DialogoCerrarVersion({
   entregables: EntregableVista[];
   hoy: string;
   esDueno: boolean;
+  // H15: "finalizar" cierra el build sin abrir otro; el formulario es el mismo.
+  modo?: "cerrar" | "finalizar";
   onCerrar: () => void;
   // Devuelve el mensaje de error del servidor, o null si se cerró.
   onConfirmar: (datos: CerrarVersionProyectoInput) => Promise<string | null>;
@@ -92,15 +95,19 @@ export function DialogoCerrarVersion({
   return (
     <Dialog
       abierto={abierto}
-      titulo="Cerrar la versión en desarrollo"
-      descripcion="La documentación queda registrada con este número y se abre una versión nueva para seguir trabajando."
+      titulo={modo === "finalizar" ? "Finalizar el proyecto" : "Cerrar la versión en desarrollo"}
+      descripcion={
+        modo === "finalizar"
+          ? "La versión en desarrollo tiene cambios: se cierra con este número y el proyecto queda finalizado, sin una versión nueva. Podés reabrirlo después."
+          : "La documentación queda registrada con este número y se abre una versión nueva para seguir trabajando."
+      }
       onCerrar={onCerrar}
     >
       {hayBorrador ? (
         <>
           <Alert variant="warning">
             <p className="font-semibold">Tenés cambios sin confirmar</p>
-            <p className="mt-1">Confirmalos o descartalos antes de cerrar la versión.</p>
+            <p className="mt-1">Confirmalos o descartalos antes de {modo === "finalizar" ? "finalizar el proyecto" : "cerrar la versión"}.</p>
           </Alert>
           <Button type="button" variant="outline" className="self-end" onClick={onCerrar}>
             Volver
@@ -113,8 +120,8 @@ export function DialogoCerrarVersion({
             <p className="mt-1">
               Cada versión cerrada corresponde a un entregable del proyecto.{" "}
               {esDueno
-                ? "Creá uno en “Información del proyecto” y volvé a cerrar la versión."
-                : "Pedile al dueño del proyecto que cree uno en “Información del proyecto”."}
+                ? "Creá uno desde “Proyecto”, en la barra de la izquierda, y volvé a cerrar la versión."
+                : "Pedile al dueño que cree uno desde “Proyecto”, en la barra de la izquierda."}
             </p>
           </Alert>
           <Button type="button" variant="outline" className="self-end" onClick={onCerrar}>
@@ -170,7 +177,7 @@ export function DialogoCerrarVersion({
               Cancelar
             </Button>
             <Button type="submit" disabled={enviando}>
-              {enviando ? "Cerrando…" : "Cerrar versión"}
+              {enviando ? (modo === "finalizar" ? "Finalizando…" : "Cerrando…") : modo === "finalizar" ? "Cerrar versión y finalizar" : "Cerrar versión"}
             </Button>
           </div>
         </form>

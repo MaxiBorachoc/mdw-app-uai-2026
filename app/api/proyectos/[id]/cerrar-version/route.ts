@@ -10,8 +10,8 @@
 import { NextResponse } from "next/server";
 import { cerrarVersionProyectoSchema } from "@/lib/schemas/versionProyecto";
 import { cerrarVersionEnDesarrollo } from "@/lib/db/versiones";
-import { formatearVersion, type NumeroVersion, type VeredictoCierre } from "@/lib/versiones-proyecto";
 import { proyectoNoEncontrado, requerirAccesoAProyecto } from "@/lib/api/autorizar";
+import { respuestaFallaCierre } from "@/lib/api/cierre";
 import { responderError } from "@/lib/api/errores";
 
 type Contexto = { params: Promise<{ id: string }> };
@@ -34,20 +34,7 @@ export async function POST(request: Request, { params }: Contexto) {
     const nueva = resultado.data;
 
     const cierre = await cerrarVersionEnDesarrollo(id, nueva);
-    if (!cierre.ok) {
-      if ("entregable" in cierre) {
-        return NextResponse.json(
-          cierre.entregable === "SIN_ENTREGABLES"
-            ? {
-                error: "El proyecto todavía no tiene entregables: el dueño tiene que crear uno antes de cerrar la versión",
-                codigo: "SIN_ENTREGABLES",
-              }
-            : { error: "El entregable elegido no existe en este proyecto", codigo: "ENTREGABLE_INEXISTENTE" },
-          { status: 409 },
-        );
-      }
-      return respuestaConflicto(cierre.veredicto, nueva);
-    }
+    if (!cierre.ok) return respuestaFallaCierre(cierre, nueva);
 
     return NextResponse.json({ cerrada: cierre.cerrada, siguiente: cierre.siguiente });
   } catch (error) {
@@ -55,34 +42,3 @@ export async function POST(request: Request, { params }: Contexto) {
   }
 }
 
-function respuestaConflicto(veredicto: Extract<VeredictoCierre, { ok: false }>, nueva: NumeroVersion) {
-  if (veredicto.motivo === "SIN_CAMBIOS") {
-    return NextResponse.json(
-      {
-        error: "La version en desarrollo no tiene cambios",
-        codigo: "VERSION_SIN_CAMBIOS",
-      },
-      { status: 409 },
-    );
-  }
-
-  if (veredicto.motivo === "DUPLICADA") {
-    return NextResponse.json(
-      {
-        error: `Ya existe una versión cerrada ${formatearVersion(nueva)} en este proyecto`,
-        codigo: "VERSION_DUPLICADA",
-        versionExistente: veredicto.version,
-      },
-      { status: 409 },
-    );
-  }
-
-  return NextResponse.json(
-    {
-      error: `La versión ${formatearVersion(nueva)} debe quedar por encima de la última versión cerrada (${formatearVersion(veredicto.ultimaCerrada)})`,
-      codigo: "VERSION_NO_ASCENDENTE",
-      ultimaVersionCerrada: veredicto.ultimaCerrada,
-    },
-    { status: 409 },
-  );
-}

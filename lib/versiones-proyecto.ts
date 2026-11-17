@@ -56,3 +56,29 @@ export function validarCierreDeVersion(
 export function formatearVersion(v: NumeroVersion): string {
   return `${v.numeroVersion}.${v.numeroBuild}.${v.numeroPatch}`;
 }
+
+/**
+ * H15: qué hace "Finalizar proyecto" según el build en desarrollo (docs/spec.md
+ * secciones 4 y 6).
+ * - Con cambios confirmados: hay que cerrarlo (número y entregable) y no abrir
+ *   otro. Si no vinieron los datos del cierre, se piden.
+ * - Sin cambios: se descarta y el proyecto queda en su última versión cerrada,
+ *   salvo que no haya ninguna: entonces no hay nada que finalizar.
+ */
+export type DecisionFinalizacion =
+  | { accion: "CERRAR_Y_FINALIZAR" }
+  | { accion: "DESCARTAR_Y_FINALIZAR" }
+  | { accion: "RECHAZAR"; motivo: "CIERRE_REQUERIDO" | "NADA_QUE_FINALIZAR" };
+
+export function decidirFinalizacion(situacion: {
+  tieneCambios: boolean;
+  hayVersionesCerradas: boolean;
+  vinoElCierre: boolean;
+}): DecisionFinalizacion {
+  if (situacion.tieneCambios) {
+    return situacion.vinoElCierre ? { accion: "CERRAR_Y_FINALIZAR" } : { accion: "RECHAZAR", motivo: "CIERRE_REQUERIDO" };
+  }
+  return situacion.hayVersionesCerradas
+    ? { accion: "DESCARTAR_Y_FINALIZAR" }
+    : { accion: "RECHAZAR", motivo: "NADA_QUE_FINALIZAR" };
+}

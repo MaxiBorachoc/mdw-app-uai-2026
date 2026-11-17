@@ -1,15 +1,18 @@
 "use client";
 
 /**
- * H11: la barra lateral del proyecto. "Información del proyecto" y un acordeón
+ * H11: la barra lateral del proyecto. "Proyecto" (la información del proyecto) y un acordeón
  * por tipo de elemento versionable: las historias de usuario, y los diagramas de
  * actividades en árbol (cada diagrama con sus actividades, y cada actividad con
  * sus internas, en todos los niveles). Muestra lo del build que se está mirando.
  *
- * - Un solo acordeón abierto a la vez. La barra tiene un alto máximo: el
- *   acordeón abierto ocupa lo que dejan libre los encabezados (el alto máximo
- *   deja ver la barra entera aunque la página no esté desplazada) y, si su contenido
- *   no entra, se desplaza adentro (lo resuelve el flex, sin medir alturas).
+ * - Un solo acordeón abierto a la vez. La barra tiene un alto fijo que no cambia al
+ *   abrir o cerrar acordeones (al costado: el alto de la ventana menos la cabecera;
+ *   en el panel deslizable de pantallas angostas: todo el panel). El abierto ocupa
+ *   lo que dejan libre los títulos y, si su contenido no entra, se desplaza adentro
+ *   (lo resuelve el flex, sin medir alturas). Si la ventana es tan baja que ni eso
+ *   entra, el acordeón abierto conserva un alto mínimo y la barra entera se
+ *   desplaza por dentro: nada se dibuja fuera de ella.
  * - Cada nivel del árbol se pliega y despliega. Arranca plegado, salvo el camino
  *   hasta el elemento elegido, que se abre solo cada vez que cambia la selección.
  */
@@ -24,6 +27,11 @@ type Acordeon = "historias" | "diagramas";
 
 const porNombre = (a: { nombre: string }, b: { nombre: string }) => a.nombre.localeCompare(b.nombre, "es");
 
+// Árbol compacto: cada nivel suma 1rem de sangría hasta el nivel TOPE_SANGRIA; los
+// más profundos dejan de correrse y muestran su nivel ("N7") para no perder la
+// noción de profundidad. Así ningún nivel se queda sin lugar para el nombre.
+const TOPE_SANGRIA = 5;
+
 export function BarraLateral({
   historias,
   actividades,
@@ -32,6 +40,7 @@ export function BarraLateral({
   onSeleccionar,
   onNuevaHistoria,
   onNuevoDiagrama,
+  prefijo = "barra",
 }: {
   historias: { id: string; titulo: string }[];
   actividades: Actividad[];
@@ -40,6 +49,8 @@ export function BarraLateral({
   onSeleccionar: (seleccion: Seleccion) => void;
   onNuevaHistoria: () => void;
   onNuevoDiagrama: () => void;
+  // Para los ids: la barra se dibuja al costado y, en pantallas angostas, en el panel deslizable.
+  prefijo?: string;
 }) {
   const [abierto, setAbierto] = useState<Acordeon | null>(seleccion.tipo === "actividad" ? "diagramas" : "historias");
   const [desplegadas, setDesplegadas] = useState<Set<string>>(
@@ -85,9 +96,11 @@ export function BarraLateral({
       return nuevas;
     });
 
-  const enlace = (texto: string, activo: boolean, alElegir: () => void) => (
+  const enlace = (texto: string, activo: boolean, alElegir: () => void, extra?: ReactNode) => (
     <button
       type="button"
+      // El nombre completo al pasar el mouse: los largos se cortan en dos líneas.
+      title={texto}
       aria-current={activo ? "true" : undefined}
       onClick={alElegir}
       className={cn(
@@ -95,7 +108,8 @@ export function BarraLateral({
         activo ? "bg-secondary font-semibold text-secondary-foreground" : "text-foreground hover:bg-muted",
       )}
     >
-      <span className="line-clamp-2 break-words">{texto}</span>
+      <span className="line-clamp-2 min-w-0 flex-1 break-words">{texto}</span>
+      {extra}
     </button>
   );
 
@@ -103,30 +117,40 @@ export function BarraLateral({
     const lista = [...(hijas.get(padreId) ?? [])].sort(porNombre);
     if (lista.length === 0) return null;
     return (
-      <ul className={cn("flex flex-col gap-0.5", nivel > 0 && "ml-3 border-l pl-1")}>
+      <ul className="flex flex-col gap-0.5">
         {lista.map((a) => {
           const nombre = a.nombre || "Sin nombre";
           const tieneInternas = (hijas.get(a.id)?.length ?? 0) > 0;
           const desplegada = desplegadas.has(a.id);
           return (
             <li key={a.id}>
-              <div className="flex items-start gap-0.5">
+              {/* Sangría calculada según el nivel (valor de runtime: único estilo en línea). */}
+              <div className="flex items-start" style={{ paddingLeft: `${Math.min(nivel, TOPE_SANGRIA)}rem` }}>
                 {tieneInternas ? (
                   <button
                     type="button"
                     aria-expanded={desplegada}
                     aria-label={`${desplegada ? "Plegar" : "Desplegar"} ${nombre}`}
                     onClick={() => alternarRama(a.id)}
-                    className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                   >
                     <span aria-hidden="true" className={cn("text-xs transition-transform", desplegada && "rotate-90")}>
                       ▶
                     </span>
                   </button>
                 ) : (
-                  <span aria-hidden="true" className="size-7 shrink-0" />
+                  <span aria-hidden="true" className="h-6 w-6 shrink-0" />
                 )}
-                {enlace(nombre, elegida("actividad", a.id), () => onSeleccionar({ tipo: "actividad", id: a.id }))}
+                {enlace(
+                  nombre,
+                  elegida("actividad", a.id),
+                  () => onSeleccionar({ tipo: "actividad", id: a.id }),
+                  nivel > TOPE_SANGRIA && (
+                    <span className="ml-1 shrink-0 rounded bg-muted px-1 text-xs text-muted-foreground">
+                      <span className="sr-only">nivel </span>N{nivel + 1}
+                    </span>
+                  ),
+                )}
               </div>
               {tieneInternas && desplegada && arbol(a.id, nivel + 1)}
             </li>
@@ -139,13 +163,13 @@ export function BarraLateral({
   const seccion = (acordeon: Acordeon, titulo: string, accion: ReactNode, contenido: ReactNode) => {
     const estaAbierto = abierto === acordeon;
     return (
-      <section className={cn("flex flex-col border-t pt-2", estaAbierto && "min-h-0")}>
+      <section className={cn("flex shrink-0 flex-col border-t pt-2", estaAbierto && "min-h-[11rem] flex-1 shrink")}>
         <h2>
           <button
             type="button"
-            id={`barra-${acordeon}-titulo`}
+            id={`${prefijo}-${acordeon}-titulo`}
             aria-expanded={estaAbierto}
-            aria-controls={`barra-${acordeon}`}
+            aria-controls={`${prefijo}-${acordeon}`}
             onClick={() => alternarAcordeon(acordeon)}
             className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-muted hover:text-foreground"
           >
@@ -157,14 +181,14 @@ export function BarraLateral({
         </h2>
         {estaAbierto && (
           <div
-            id={`barra-${acordeon}`}
+            id={`${prefijo}-${acordeon}`}
             role="region"
-            aria-labelledby={`barra-${acordeon}-titulo`}
-            className="flex min-h-0 flex-col gap-2 pt-1"
+            aria-labelledby={`${prefijo}-${acordeon}-titulo`}
+            className="flex min-h-0 flex-1 flex-col gap-2 pt-1"
           >
             {accion}
             {/* Lo único que se desplaza: el botón de crear queda siempre a la vista. */}
-            <div className="max-h-80 min-h-0 overflow-y-auto lg:max-h-none">{contenido}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto">{contenido}</div>
           </div>
         )}
       </section>
@@ -175,11 +199,20 @@ export function BarraLateral({
     <nav
       ref={barraRef}
       aria-label="Elementos del proyecto"
-      className="flex flex-col gap-2 rounded-[var(--radius)] border bg-card p-3 lg:max-h-[calc(100vh-12rem)]"
+      className="flex h-full flex-col gap-2 overflow-y-auto rounded-[var(--radius)] border bg-card p-3 md:h-[calc(100vh-12rem)]"
     >
-      <div className="shrink-0">
-        {enlace("Información del proyecto", seleccion.tipo === "proyecto", () => onSeleccionar({ tipo: "proyecto" }))}
-      </div>
+      {/* Mismo estilo que los títulos de los acordeones: los tres están al mismo nivel. */}
+      <button
+        type="button"
+        aria-current={seleccion.tipo === "proyecto" ? "true" : undefined}
+        onClick={() => onSeleccionar({ tipo: "proyecto" })}
+        className={cn(
+          "w-full shrink-0 rounded-md px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide",
+          seleccion.tipo === "proyecto" ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+        )}
+      >
+        Proyecto
+      </button>
 
       {seccion(
         "historias",

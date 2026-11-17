@@ -46,8 +46,12 @@
   --font-sans: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-* {
-  border-color: var(--border);
+/* En la capa base: sin capa le ganaba a toda utilidad de color de borde
+   (border-primary, aria-invalid:border-destructive...) y las anulaba. */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
 }
 
 html {

@@ -7,7 +7,6 @@
  */
 import { useState } from "react";
 import { HistorialRevisiones } from "@/components/proyecto/HistorialRevisiones";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -69,7 +68,6 @@ export function PanelHistoria({
               <p className="text-sm font-semibold text-primary">Historia de usuario</p>
               <CardTitle className="break-words text-2xl">{historia.titulo || "Historia sin título"}</CardTitle>
             </div>
-            <Badge variant="neutral">{nueva ? "Nueva, sin confirmar" : `Versión ${historia.numeroVersion}`}</Badge>
           </div>
           {!soloLectura && (
             <CardDescription>Los cambios se guardan como una versión nueva al tocar “Confirmar cambios”.</CardDescription>

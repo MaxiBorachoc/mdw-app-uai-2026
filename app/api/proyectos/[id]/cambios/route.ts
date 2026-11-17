@@ -33,6 +33,15 @@ export async function POST(request: Request, { params }: Contexto) {
 
     const confirmacion = await confirmarCambios(id, acceso.usuario.id, resultado.data);
     if (!confirmacion.ok) {
+      if (confirmacion.motivo === "FINALIZADO") {
+        return NextResponse.json(
+          {
+            error: "El proyecto fue finalizado: ya no se pueden confirmar cambios. Descartá tu borrador.",
+            codigo: "PROYECTO_FINALIZADO",
+          },
+          { status: 409 },
+        );
+      }
       if (confirmacion.motivo === "SIN_BUILD") {
         return NextResponse.json(
           { error: "El proyecto no tiene una versión en desarrollo", codigo: "SIN_VERSION_EN_DESARROLLO" },
