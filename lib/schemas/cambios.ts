@@ -8,7 +8,7 @@
  * compara con la vigente para detectar conflictos.
  */
 import { z } from "zod";
-import { actividadEnBorradorSchema } from "./actividad";
+import { actividadEnBorradorSchema, reglasDeNodo } from "./actividad";
 import { IdSchema } from "./comun";
 import { conexionEnBorradorSchema } from "./conexionActividad";
 import { contenidoHistoriaSchema } from "./historiaUsuario";
@@ -24,7 +24,7 @@ const control = {
 
 export const cambiosSchema = z.object({
   historias: z.array(contenidoHistoriaSchema.extend(control)).max(ELEMENTOS_POR_CONFIRMACION_MAX),
-  actividades: z.array(actividadEnBorradorSchema.extend(control)).max(ELEMENTOS_POR_CONFIRMACION_MAX),
+  actividades: z.array(actividadEnBorradorSchema.extend(control).superRefine(reglasDeNodo)).max(ELEMENTOS_POR_CONFIRMACION_MAX),
   conexiones: z.array(conexionEnBorradorSchema.extend(control)).max(ELEMENTOS_POR_CONFIRMACION_MAX),
 });
 export type Cambios = z.infer<typeof cambiosSchema>;

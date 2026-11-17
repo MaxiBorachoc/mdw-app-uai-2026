@@ -32,6 +32,18 @@ enum EstadoProyecto {
   FINALIZADO
 }
 
+// H16: un nodo del lienzo es una actividad o un nodo de control de UML. Los nodos
+// de control no tienen nombre, documentacion, historias ni diagrama interno. El
+// tipo no cambia despues de crear el nodo (lo controla lib/documentacion.ts).
+enum TipoNodo {
+  ACTIVIDAD
+  INICIAL
+  FINAL_ACTIVIDAD
+  FINAL_FLUJO
+  DECISION
+  BIFURCACION
+}
+
 enum EstadoInvitacion {
   PENDIENTE
   ACEPTADA
@@ -196,6 +208,7 @@ model ActividadVersion {
   id            String   @id @default(cuid())
   numeroVersion Int
   eliminado     Boolean  @default(false)
+  tipo          TipoNodo @default(ACTIVIDAD)
   nombre        String
   documentacion String   @default("")
   // Nulas en un diagrama (actividad sin padre): no se dibuja en ningun lienzo.
@@ -254,6 +267,8 @@ model ConexionActividadVersion {
   id            String   @id @default(cuid())
   numeroVersion Int
   eliminado     Boolean  @default(false)
+  // H16: condicion opcional, se muestra entre corchetes sobre la flecha.
+  guarda        String   @default("")
   creadoEn      DateTime @default(now())
 
   conexionId String

@@ -73,8 +73,8 @@ Y además, los datos propios de cada tipo:
 | Revisión | Datos propios |
 |---|---|
 | `HistoriaUsuarioVersion` | Título, descripción y criterios de aceptación |
-| `ActividadVersion` | Nombre, documentación, actividad padre (o ninguna), posición X e Y en el lienzo, e historias de usuario asociadas |
-| `ConexionActividadVersion` | Actividad de origen y actividad de destino |
+| `ActividadVersion` | Tipo (actividad o nodo de control, ver abajo), nombre, documentación, actividad padre (o ninguna), posición X e Y en el lienzo, e historias de usuario asociadas |
+| `ConexionActividadVersion` | Actividad de origen, actividad de destino y guarda (condición opcional, H16) |
 
 **Las referencias apuntan al `id` del elemento, no a una versión.** El padre de una actividad, el
 origen y el destino de una flecha y las historias asociadas a una actividad guardan el `id` del
@@ -98,6 +98,22 @@ que lo referencian.
 **Relaciones N-N:** un usuario participa en muchos proyectos y un proyecto tiene muchos usuarios, a
 través de `MiembroProyecto`. Una actividad puede asociarse a varias historias y una historia tener
 varias actividades asociadas; la asociación se guarda en cada revisión de la actividad.
+
+**Tipos de nodo (H16).** Un nodo del lienzo es una **actividad** o un **nodo de control** de UML, y
+todos se guardan como `Actividad` / `ActividadVersion` con un tipo. Así comparten el versionado, la
+posición, las flechas, la concurrencia y el borrado sin duplicar nada:
+
+| Tipo | Se dibuja como | Qué puede tener |
+|---|---|---|
+| **Actividad** | Rectángulo redondeado con su nombre | Nombre, documentación, historias asociadas, diagrama interno. Puede ser un diagrama (sin padre) |
+| **Nodo inicial** | Círculo relleno | Solo posición en el lienzo de su padre |
+| **Nodo final de actividad** | Círculo relleno dentro de otro círculo | Ídem |
+| **Nodo final de flujo** | Círculo con una cruz | Ídem |
+| **Decisión / combinación** | Rombo | Ídem. Decide (una entrada, varias salidas) o combina (varias entradas, una salida) según sus flechas |
+| **Bifurcación / unión** | Barra gruesa horizontal | Ídem. Bifurca (una entrada, varias salidas) o une (varias entradas, una salida) según sus flechas |
+
+Los nodos de control no tienen nombre, documentación, historias asociadas ni diagrama interno, y
+siempre están dentro de un diagrama. El tipo de un nodo se elige al crearlo y no cambia.
 
 **Diagramas:** un diagrama es una actividad sin padre. Sus actividades hijas son los nodos de su
 lienzo, y las flechas unen hijas del mismo padre. Una actividad hija puede tener a su vez hijas: ese es
@@ -157,6 +173,7 @@ se muestra ni se comunica por mail.
 | Descripción de historia | 2000 caracteres |
 | Cada criterio de aceptación | 300 caracteres |
 | Nombre de actividad | 100 caracteres |
+| Guarda de una flecha | 100 caracteres |
 | Documentación de actividad | 5000 caracteres |
 | Nombre de versión de proyecto | 100 caracteres |
 | Descripción de versión de proyecto | 1000 caracteres |
@@ -448,7 +465,7 @@ Criterios de aceptación:
 - [ ] Dentro de un lienzo, el usuario crea una flecha eligiendo una actividad de origen y una de
       destino. La flecha se dibuja sola, de borde a borde de los nodos.
 - [ ] Se permite una flecha de una actividad hacia sí misma, y se permiten ciclos (A → B → A), para
-      modelar procesos repetitivos.
+      modelar procesos repetitivos. Un nodo de control no puede tener una flecha hacia sí mismo (H16).
 - [ ] El usuario elimina una flecha sin eliminar las actividades que une.
 - [ ] Las flechas se versionan como cualquier elemento: al mirar un build cerrado se ven las flechas
       que existían en ese momento.
@@ -473,6 +490,9 @@ Criterios de aceptación:
       cada actividad con sus actividades internas, en todos los niveles.
 - [ ] Cada elemento del árbol que tiene actividades internas se puede desplegar y plegar. Al entrar,
       los niveles arrancan plegados, salvo el camino hasta el elemento que se está viendo.
+- [ ] En anidaciones profundas, cada nivel se corre un poco más a la derecha hasta un tope; los niveles
+      más profundos quedan en ese tope y muestran su número de nivel. Un nombre que no entra se ve
+      completo al pasar el mouse.
 - [ ] Seleccionar un elemento en la barra abre su detalle en el panel principal.
 - [ ] La barra respeta el build que se está mirando: en una versión cerrada muestra los elementos de
       ese momento.
@@ -589,6 +609,34 @@ Criterios de aceptación:
 - [ ] Caso de error: si quien intenta finalizar o reabrir no es el dueño, el sistema rechaza la acción
       aunque la llamada no venga de la interfaz.
 
+### H16 - Agregar nodos de control a un diagrama
+
+**Como** dueño o editor, **quiero** agregar nodos inicial, final, de decisión y de bifurcación, y
+condiciones en las flechas, **para** modelar un diagrama de actividades completo según UML.
+
+Criterios de aceptación:
+- [ ] En la barra de herramientas del lienzo, además de "Nueva actividad", el usuario agrega un
+      **nodo inicial**, un **nodo final de actividad**, un **nodo final de flujo**, una **decisión** o
+      una **bifurcación**. Cada tipo se dibuja con su forma de UML (ver sección 3).
+- [ ] Los nodos de control se mueven, se conectan con flechas, se eliminan y se versionan igual que
+      las actividades, y se guardan con "Confirmar cambios" (H12).
+- [ ] Los nodos de control no aparecen en la barra lateral: solo en el lienzo de su diagrama.
+- [ ] Al elegir un nodo de control en el lienzo, el panel muestra su tipo y la opción de eliminarlo. No
+      tiene nombre, documentación, historias asociadas ni diagrama interno.
+- [ ] Una flecha puede tener una **guarda**: una condición opcional que se muestra entre corchetes
+      sobre la flecha (por ejemplo, `[pago aprobado]`). Está pensada para las que salen de una decisión,
+      pero se permite en cualquiera.
+- [ ] Caso de error: un nodo inicial no puede tener flechas que entren.
+- [ ] Caso de error: un nodo final (de actividad o de flujo) no puede tener flechas que salgan.
+- [ ] Caso de error: un nodo de control no puede tener una flecha hacia sí mismo.
+- [ ] Caso de error: un nodo de control no puede ser un diagrama ni moverse fuera de uno (siempre tiene
+      padre).
+- [ ] Caso de error: si la guarda supera su longitud máxima (ver sección 3), no se guarda y se muestra
+      el motivo.
+- [ ] El resto de las reglas de UML no se valida: puede haber varios nodos iniciales en un diagrama, y
+      una decisión o una bifurcación pueden tener cualquier cantidad de flechas.
+- [ ] Al mirar una versión cerrada se ven los nodos de control y las guardas tal como estaban.
+
 ## 5. Flujo principal
 
 ### Mapa de pantallas
@@ -686,6 +734,10 @@ revisar a mano.
 - Eliminar una actividad elimina, en el mismo cambio, todas sus actividades internas (en todos los
   niveles) y todas las flechas que tocan a cualquiera de ellas.
 - El nombre de una actividad puede repetirse.
+- Un nodo es una actividad o un nodo de control (inicial, final de actividad, final de flujo,
+  decisión, bifurcación). El tipo no cambia después de crearlo.
+- Un nodo de control no tiene nombre, documentación, historias asociadas ni diagrama interno, y
+  siempre tiene padre. No aparece en la barra lateral.
 - Una actividad se puede asociar a varias historias; una historia, tener varias actividades
   asociadas. La asociación vive en la revisión de la actividad.
 
@@ -693,7 +745,11 @@ revisar a mano.
 
 - Una flecha une dos actividades del mismo proyecto y del mismo diagrama (mismo padre, que no puede ser
   ninguno).
-- Se permiten las flechas de una actividad hacia sí misma y los ciclos.
+- Se permiten las flechas de una actividad hacia sí misma y los ciclos. Un nodo de control no puede
+  tener una flecha hacia sí mismo.
+- A un nodo inicial no le entran flechas; de un nodo final (de actividad o de flujo) no salen. El resto
+  de las reglas de UML no se valida.
+- Una flecha puede tener una guarda (condición opcional), que se muestra entre corchetes.
 - No puede haber dos flechas vigentes con el mismo origen y el mismo destino.
 - Una flecha se elimina sin eliminar las actividades que une.
 

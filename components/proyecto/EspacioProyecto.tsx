@@ -34,6 +34,7 @@ import {
   crearConexion,
   crearHistoria,
   editarActividad,
+  editarGuarda,
   editarHistoria,
   elementosModificados,
   eliminarActividad,
@@ -48,6 +49,9 @@ import {
 } from "@/lib/borrador";
 import {
   ancestros,
+  esNodoDeControl,
+  motivoFlechaNoPermitida,
+  nombreNodo,
   PREFIJO_NUEVO,
   puedeMoverA,
   type ElementoConProblema,
@@ -222,7 +226,8 @@ export function EspacioProyecto({
   const padresPosibles = useCallback(
     (id: string) =>
       v.actividades
-        .filter((p) => p.id !== id && puedeMoverA(v.actividades, id, p.id))
+        // H16: un nodo de control no tiene diagrama interno: no puede ser padre.
+        .filter((p) => p.tipo === "ACTIVIDAD" && p.id !== id && puedeMoverA(v.actividades, id, p.id))
         .map((p) => ({ id: p.id, nombre: p.nombre, ruta: rutaTexto(p.id) })),
     [v, rutaTexto],
   );
@@ -251,6 +256,14 @@ export function EspacioProyecto({
   };
 
   const irAActividad = (id: string) => {
+    // H16: un nodo de control no se abre (no tiene diagrama interno): se muestra
+    // elegido en el diagrama que lo contiene.
+    const destino = v.actividades.find((a) => a.id === id);
+    if (destino && esNodoDeControl(destino.tipo) && destino.padreId) {
+      setSeleccion({ tipo: "actividad", id: destino.padreId });
+      setNodoElegido(id);
+      return;
+    }
     setSeleccion({ tipo: "actividad", id });
     setNodoElegido(null);
   };
@@ -273,7 +286,7 @@ export function EspacioProyecto({
       alcance.actividades > 0 && cantidad(alcance.actividades, "actividad interna", "actividades internas"),
       alcance.flechas > 0 && cantidad(alcance.flechas, "flecha", "flechas"),
     ].filter(Boolean);
-    const pregunta = `¿Eliminar “${actividad.nombre}”${detalle.length ? ` junto con ${detalle.join(" y ")}` : ""}? Se va a poder ver en las versiones cerradas anteriores.`;
+    const pregunta = `¿Eliminar “${nombreNodo(actividad)}”${detalle.length ? ` junto con ${detalle.join(" y ")}` : ""}? Se va a poder ver en las versiones cerradas anteriores.`;
     if (!window.confirm(pregunta)) return;
     modificar((b) => eliminarActividad(b, id));
     if (nodoElegido === id) setNodoElegido(null);
@@ -291,6 +304,14 @@ export function EspacioProyecto({
   };
 
   const conectar = (origenId: string, destinoId: string) => {
+    // H16: las reglas de UML que se validan (el servidor las vuelve a controlar).
+    const origen = v.actividades.find((a) => a.id === origenId);
+    const destino = v.actividades.find((a) => a.id === destinoId);
+    const motivo = origen && destino ? motivoFlechaNoPermitida(origen, destino) : null;
+    if (motivo) {
+      setMensaje({ variante: "warning", titulo: "No se puede crear esa flecha", lineas: [motivo] });
+      return;
+    }
     const { borrador: nuevo, existente } = crearConexion(borrador, idNuevo(), origenId, destinoId);
     if (existente) {
       setFlechaResaltada(existente);
@@ -318,7 +339,8 @@ export function EspacioProyecto({
           return r.success ? [] : [{ tipo: "HISTORIA" as const, id: h.id, nombre: h.titulo || "Historia sin título", motivo: r.error.issues[0]?.message ?? "" }];
         }),
       ...cambios.actividades
-        .filter((a) => !a.eliminado)
+        // Los nodos de control no tienen nombre ni documentación que validar (H16).
+        .filter((a) => !a.eliminado && a.tipo === "ACTIVIDAD")
         .flatMap((a) => {
           const r = contenidoActividadSchema.safeParse(a);
           return r.success ? [] : [{ tipo: "ACTIVIDAD" as const, id: a.id, nombre: a.nombre || "Sin nombre", motivo: r.error.issues[0]?.message ?? "" }];
@@ -522,10 +544,11 @@ export function EspacioProyecto({
         historias={historiasLista}
         nodos={hijas.map((a) => ({
           id: a.id,
+          tipo: a.tipo,
           nombre: a.nombre,
           x: a.posicionX ?? 0,
           y: a.posicionY ?? 0,
-          internas: v.actividades.filter((x) => x.padreId === a.id).length,
+          internas: v.actividades.filter((x) => x.padreId === a.id && x.tipo === "ACTIVIDAD").length,
           historias: a.historiaIds.length,
         }))}
         flechas={v.conexiones.filter((c) => idsHijas.has(c.origenId))}
@@ -537,11 +560,13 @@ export function EspacioProyecto({
         onEliminar={eliminarUnaActividad}
         onSeleccionarNodo={setNodoElegido}
         onMoverNodo={(id, x, y) => modificar((b) => editarActividad(b, id, { posicionX: x, posicionY: y }))}
-        onCrearNodo={(x, y) => {
+        onCrearNodo={(x, y, tipo) => {
           const id = idNuevo();
-          modificar((b) => crearActividad(b, id, { nombre: "Nueva actividad", padreId: actividadAbierta.id, posicionX: x, posicionY: y }));
+          const nombre = tipo === "ACTIVIDAD" ? "Nueva actividad" : "";
+          modificar((b) => crearActividad(b, id, { tipo, nombre, padreId: actividadAbierta.id, posicionX: x, posicionY: y }));
           setNodoElegido(id);
         }}
+        onCambiarGuarda={(id, guarda) => modificar((b) => editarGuarda(b, id, guarda))}
         onConectar={conectar}
         onEliminarFlecha={(id) => modificar((b) => eliminarConexion(b, id))}
       />
@@ -695,6 +720,6 @@ function nombreEn(estado: Estado, id: string): string {
   const historia = estado.historias.find((h) => h.id === id);
   if (historia) return historia.titulo || "Historia sin título";
   const actividad = estado.actividades.find((a) => a.id === id);
-  if (actividad) return actividad.nombre || "Sin nombre";
+  if (actividad) return nombreNodo(actividad) || "Sin nombre";
   return "(elemento eliminado)";
 }

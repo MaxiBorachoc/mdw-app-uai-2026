@@ -1,38 +1,106 @@
 "use client";
 
 /**
- * El lienzo de un diagrama (H5, H6, H7, H10): las actividades internas de una
- * actividad como nodos, y las flechas entre ellas.
+ * El lienzo de un diagrama (H5, H6, H7, H10, H16): los nodos internos de una
+ * actividad (actividades y nodos de control de UML) y las flechas entre ellos.
  *
  * - Un nodo se arrastra con el mouse o se mueve con las flechas del teclado. La
  *   posición se pasa al borrador al soltar: un arrastre es un solo cambio.
- * - Doble clic (o Enter) abre el diagrama interno de una actividad.
- * - "Conectar actividades" une un origen y un destino; se permite una flecha de
- *   una actividad hacia sí misma.
- * - Las flechas se dibujan solas, de borde a borde de los nodos.
+ * - Doble clic (o Enter) abre el diagrama interno de una actividad. Los nodos de
+ *   control no tienen diagrama interno.
+ * - "Conectar nodos" une un origen y un destino; las reglas de UML que se validan
+ *   (H16) las controla quien recibe el gesto.
+ * - Las flechas se dibujan solas, de borde a borde de la forma de cada nodo, con su
+ *   guarda entre corchetes si tiene una.
  *
  * No guarda nada: avisa cada gesto al componente padre, que actualiza el borrador.
+ * Las coordenadas son píxeles del lienzo: así se guardan las posiciones (posición X e Y).
  */
-import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { esNodoDeControl, etiquetaTipoNodo, type TipoNodo } from "@/lib/documentacion";
+import { GUARDA_MAX } from "@/lib/schemas/conexionActividad";
 import { cantidad, cn } from "@/lib/utils";
 
 export const ANCHO_NODO = 176;
 export const ALTO_NODO = 64;
 const PASO_TECLADO = 10;
 
-export type NodoLienzo = { id: string; nombre: string; x: number; y: number; internas: number; historias: number };
-export type FlechaLienzo = { id: string; origenId: string; destinoId: string };
+export type NodoLienzo = { id: string; tipo: TipoNodo; nombre: string; x: number; y: number; internas: number; historias: number };
+export type FlechaLienzo = { id: string; origenId: string; destinoId: string; guarda: string };
 
 type Arrastre = { id: string; inicioX: number; inicioY: number; x0: number; y0: number; x: number; y: number; movido: boolean };
 
-/** Punto del borde de un nodo en dirección a (dx, dy) desde su centro. */
-function borde(cx: number, cy: number, dx: number, dy: number) {
-  const t = 1 / Math.max(Math.abs(dx) / (ANCHO_NODO / 2), Math.abs(dy) / (ALTO_NODO / 2), 1e-6);
+// H16: tamaño de cada forma en el lienzo. La actividad es un rectángulo; los nodos de
+// control, formas chicas de UML.
+const tamanios: Record<TipoNodo, { ancho: number; alto: number }> = {
+  ACTIVIDAD: { ancho: ANCHO_NODO, alto: ALTO_NODO },
+  INICIAL: { ancho: 32, alto: 32 },
+  FINAL_ACTIVIDAD: { ancho: 36, alto: 36 },
+  FINAL_FLUJO: { ancho: 36, alto: 36 },
+  DECISION: { ancho: 56, alto: 56 },
+  BIFURCACION: { ancho: 128, alto: 14 },
+};
+
+const CONTROLES: TipoNodo[] = ["INICIAL", "FINAL_ACTIVIDAD", "FINAL_FLUJO", "DECISION", "BIFURCACION"];
+
+/**
+ * Punto del borde de un nodo en dirección a (dx, dy) desde su centro, según su
+ * forma: rectángulo (actividad y barra), círculo o rombo.
+ */
+function borde(cx: number, cy: number, dx: number, dy: number, tipo: TipoNodo) {
+  const { ancho, alto } = tamanios[tipo];
+  const largo = Math.hypot(dx, dy) || 1;
+  if (tipo === "INICIAL" || tipo === "FINAL_ACTIVIDAD" || tipo === "FINAL_FLUJO") {
+    const r = ancho / 2;
+    return { x: cx + (dx / largo) * r, y: cy + (dy / largo) * r };
+  }
+  const t =
+    tipo === "DECISION"
+      ? 1 / Math.max(Math.abs(dx) / (ancho / 2) + Math.abs(dy) / (alto / 2), 1e-6)
+      : 1 / Math.max(Math.abs(dx) / (ancho / 2), Math.abs(dy) / (alto / 2), 1e-6);
   return { x: cx + dx * t, y: cy + dy * t };
 }
 
-/** Un lugar libre para una actividad nueva, recorriendo una grilla. */
+/** La forma de UML de un nodo de control, dibujada dentro de su botón. */
+function formaDeControl(tipo: TipoNodo): ReactNode {
+  const { ancho, alto } = tamanios[tipo];
+  const svg = (contenido: ReactNode) => (
+    <svg width={ancho} height={alto} viewBox={`0 0 ${ancho} ${alto}`} aria-hidden="true" className="overflow-visible">
+      {contenido}
+    </svg>
+  );
+  const c = ancho / 2;
+  switch (tipo) {
+    case "INICIAL":
+      return svg(<circle cx={c} cy={c} r={c - 1} fill="currentColor" />);
+    case "FINAL_ACTIVIDAD":
+      return svg(
+        <>
+          <circle cx={c} cy={c} r={c - 1.5} fill="var(--card)" stroke="currentColor" strokeWidth={2} />
+          <circle cx={c} cy={c} r={c - 7} fill="currentColor" />
+        </>,
+      );
+    case "FINAL_FLUJO":
+      return svg(
+        <>
+          <circle cx={c} cy={c} r={c - 1.5} fill="var(--card)" stroke="currentColor" strokeWidth={2} />
+          <path d={`M ${c - 7} ${c - 7} L ${c + 7} ${c + 7} M ${c + 7} ${c - 7} L ${c - 7} ${c + 7}`} stroke="currentColor" strokeWidth={2} />
+        </>,
+      );
+    case "DECISION":
+      return svg(
+        <polygon points={`${c},1 ${ancho - 1},${alto / 2} ${c},${alto - 1} 1,${alto / 2}`} fill="var(--card)" stroke="currentColor" strokeWidth={2} />,
+      );
+    case "BIFURCACION":
+      return svg(<rect x={0} y={0} width={ancho} height={alto} rx={3} fill="currentColor" />);
+    default:
+      return null;
+  }
+}
+
+/** Un lugar libre para un nodo nuevo, recorriendo una grilla. */
 export function lugarLibre(nodos: { x: number; y: number }[]): { x: number; y: number } {
   for (let fila = 0; fila < 50; fila++) {
     for (let columna = 0; columna < 5; columna++) {
@@ -58,6 +126,7 @@ export function LienzoDiagrama({
   onCrearNodo,
   onConectar,
   onEliminarFlecha,
+  onCambiarGuarda,
 }: {
   titulo: string;
   nodos: NodoLienzo[];
@@ -68,9 +137,10 @@ export function LienzoDiagrama({
   onSeleccionarNodo: (id: string) => void;
   onAbrirNodo: (id: string) => void;
   onMoverNodo: (id: string, x: number, y: number) => void;
-  onCrearNodo: (x: number, y: number) => void;
+  onCrearNodo: (x: number, y: number, tipo: TipoNodo) => void;
   onConectar: (origenId: string, destinoId: string) => void;
   onEliminarFlecha: (id: string) => void;
+  onCambiarGuarda: (id: string, guarda: string) => void;
 }) {
   const [arrastre, setArrastre] = useState<Arrastre | null>(null);
   const [conectando, setConectando] = useState(false);
@@ -78,7 +148,9 @@ export function LienzoDiagrama({
   const [flechaElegida, setFlechaElegida] = useState<string | null>(null);
   // Después de arrastrar, el navegador igual dispara un click: se lo ignora.
   const ignorarClick = useRef(false);
+  const menuControles = useRef<HTMLDetailsElement>(null);
 
+  const porId = useMemo(() => new Map(nodos.map((n) => [n.id, n])), [nodos]);
   const posiciones = useMemo(() => {
     const mapa = new Map(nodos.map((n) => [n.id, { x: n.x, y: n.y }]));
     if (arrastre) mapa.set(arrastre.id, { x: arrastre.x, y: arrastre.y });
@@ -87,7 +159,17 @@ export function LienzoDiagrama({
 
   const ancho = Math.max(1100, ...[...posiciones.values()].map((p) => p.x + ANCHO_NODO + 160));
   const alto = Math.max(520, ...[...posiciones.values()].map((p) => p.y + ALTO_NODO + 160));
-  const nombre = (id: string) => nodos.find((n) => n.id === id)?.nombre ?? "";
+  const nombre = (id: string) => {
+    const n = porId.get(id);
+    return n ? (esNodoDeControl(n.tipo) ? etiquetaTipoNodo[n.tipo] : n.nombre) : "";
+  };
+  const tipoDe = (id: string): TipoNodo => porId.get(id)?.tipo ?? "ACTIVIDAD";
+
+  const crear = (tipo: TipoNodo) => {
+    const lugar = lugarLibre(nodos);
+    onCrearNodo(lugar.x, lugar.y, tipo);
+    menuControles.current?.removeAttribute("open");
+  };
 
   const alPresionar = (e: PointerEvent<HTMLButtonElement>, nodo: NodoLienzo) => {
     if (soloLectura || conectando || e.button !== 0) return;
@@ -129,10 +211,15 @@ export function LienzoDiagrama({
     onSeleccionarNodo(id);
   };
 
+  // Solo una actividad tiene diagrama interno para abrir.
+  const abrir = (nodo: NodoLienzo) => {
+    if (!esNodoDeControl(nodo.tipo)) onAbrirNodo(nodo.id);
+  };
+
   const alTeclaNodo = (e: KeyboardEvent<HTMLButtonElement>, nodo: NodoLienzo) => {
     if (e.key === "Enter" && !conectando) {
       e.preventDefault();
-      onAbrirNodo(nodo.id);
+      abrir(nodo);
       return;
     }
     if (soloLectura || conectando) return;
@@ -151,56 +238,80 @@ export function LienzoDiagrama({
 
   const centro = (id: string) => {
     const p = posiciones.get(id);
-    return p ? { x: p.x + ANCHO_NODO / 2, y: p.y + ALTO_NODO / 2 } : null;
+    if (!p) return null;
+    const { ancho: w, alto: h } = tamanios[tipoDe(id)];
+    return { x: p.x + w / 2, y: p.y + h / 2 };
   };
 
-  const trazo = (f: FlechaLienzo) => {
+  // El recorrido de una flecha y el punto donde va su guarda.
+  const trazo = (f: FlechaLienzo): { d: string; etiqueta: { x: number; y: number } } | null => {
     const p = posiciones.get(f.origenId);
     if (!p) return null;
     if (f.origenId === f.destinoId) {
       // Flecha de una actividad hacia sí misma: un lazo sobre la esquina superior derecha.
-      const x1 = p.x + ANCHO_NODO * 0.7;
-      const y2 = p.y + ALTO_NODO * 0.3;
-      return `M ${x1} ${p.y} C ${x1} ${p.y - 46}, ${p.x + ANCHO_NODO + 46} ${y2}, ${p.x + ANCHO_NODO} ${y2}`;
+      const { ancho: w, alto: h } = tamanios[tipoDe(f.origenId)];
+      const x1 = p.x + w * 0.7;
+      const y2 = p.y + h * 0.3;
+      return {
+        d: `M ${x1} ${p.y} C ${x1} ${p.y - 46}, ${p.x + w + 46} ${y2}, ${p.x + w} ${y2}`,
+        etiqueta: { x: p.x + w + 28, y: p.y - 30 },
+      };
     }
     const a = centro(f.origenId);
     const b = centro(f.destinoId);
     if (!a || !b) return null;
-    let dx = b.x - a.x;
-    let dy = b.y - a.y;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
     // Si también existe la flecha inversa, cada una se corre a un costado para verse las dos.
     const inversa = flechas.some((g) => g.origenId === f.destinoId && g.destinoId === f.origenId);
     const largo = Math.hypot(dx, dy) || 1;
     const corrimiento = inversa ? 8 : 0;
     const ox = (-dy / largo) * corrimiento;
     const oy = (dx / largo) * corrimiento;
-    const inicio = borde(a.x + ox, a.y + oy, dx, dy);
-    dx = -dx;
-    dy = -dy;
-    const fin = borde(b.x + ox, b.y + oy, dx, dy);
-    return `M ${inicio.x} ${inicio.y} L ${fin.x} ${fin.y}`;
+    const inicio = borde(a.x + ox, a.y + oy, dx, dy, tipoDe(f.origenId));
+    const fin = borde(b.x + ox, b.y + oy, -dx, -dy, tipoDe(f.destinoId));
+    return {
+      d: `M ${inicio.x} ${inicio.y} L ${fin.x} ${fin.y}`,
+      // La guarda, al medio y un poco corrida hacia un costado para no tapar la línea.
+      etiqueta: { x: (inicio.x + fin.x) / 2 + (-dy / largo) * 12, y: (inicio.y + fin.y) / 2 + (dx / largo) * 12 },
+    };
   };
 
   const eliminarElegida = () => {
     if (flechaElegida) onEliminarFlecha(flechaElegida);
     setFlechaElegida(null);
   };
+  const elegida = flechas.find((f) => f.id === flechaElegida);
 
   return (
     <div className="flex flex-col gap-3">
       {!soloLectura && (
         <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label={`Herramientas del diagrama ${titulo}`}>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={() => {
-              const lugar = lugarLibre(nodos);
-              onCrearNodo(lugar.x, lugar.y);
-            }}
-          >
+          <Button type="button" size="sm" variant="secondary" onClick={() => crear("ACTIVIDAD")}>
             Nueva actividad
           </Button>
+          {/* H16: los nodos de control de UML. */}
+          <details ref={menuControles} className="relative">
+            <summary className="flex h-9 cursor-pointer list-none items-center rounded-[var(--radius)] border bg-card px-3 text-sm font-medium hover:bg-muted [&::-webkit-details-marker]:hidden">
+              Nodo de control ▾
+            </summary>
+            <ul className="absolute left-0 z-20 mt-1 flex w-60 flex-col gap-0.5 rounded-[var(--radius)] border bg-card p-1 shadow-lg">
+              {CONTROLES.map((tipo) => (
+                <li key={tipo}>
+                  <button
+                    type="button"
+                    onClick={() => crear(tipo)}
+                    className="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+                  >
+                    <span className="flex w-10 shrink-0 justify-center text-foreground [&_svg]:max-h-6 [&_svg]:max-w-10">
+                      {formaDeControl(tipo)}
+                    </span>
+                    {etiquetaTipoNodo[tipo]}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
           <Button
             type="button"
             size="sm"
@@ -212,20 +323,36 @@ export function LienzoDiagrama({
               setOrigen(null);
             }}
           >
-            {conectando ? "Cancelar conexión" : "Conectar actividades"}
+            {conectando ? "Cancelar conexión" : "Conectar nodos"}
           </Button>
-          {flechaElegida && (
-            <Button type="button" size="sm" variant="danger" onClick={eliminarElegida}>
-              Eliminar flecha
-            </Button>
+          {elegida && (
+            <>
+              {/* H16: la guarda de la flecha elegida. */}
+              <label htmlFor="guarda-flecha" className="text-sm font-medium">
+                Guarda
+              </label>
+              <Input
+                id="guarda-flecha"
+                className="h-9 w-56"
+                placeholder="Ej.: pago aprobado"
+                maxLength={GUARDA_MAX}
+                value={elegida.guarda}
+                onChange={(e) => onCambiarGuarda(elegida.id, e.target.value)}
+              />
+              <Button type="button" size="sm" variant="danger" onClick={eliminarElegida}>
+                Eliminar flecha
+              </Button>
+            </>
           )}
           {/* En su propia línea: si el texto cambia de largo, el lienzo no salta. */}
           <p className="basis-full text-xs text-muted-foreground" aria-live="polite">
             {conectando
               ? origen
-                ? `Origen: ${nombre(origen)}. Elegí la actividad de destino (puede ser la misma).`
-                : "Elegí la actividad de origen."
-              : "Arrastrá o usá las flechas del teclado para mover. Doble clic o Enter abre el diagrama interno."}
+                ? `Origen: ${nombre(origen)}. Elegí el nodo de destino.`
+                : "Elegí el nodo de origen."
+              : elegida
+                ? "La guarda es una condición opcional: se muestra entre corchetes sobre la flecha."
+                : "Arrastrá o usá las flechas del teclado para mover. Doble clic o Enter abre el diagrama interno de una actividad."}
           </p>
         </div>
       )}
@@ -244,15 +371,15 @@ export function LienzoDiagrama({
               </marker>
             </defs>
             {flechas.map((f) => {
-              const d = trazo(f);
-              if (!d) return null;
+              const t = trazo(f);
+              if (!t) return null;
               const activa = flechaElegida === f.id || flechaResaltada === f.id;
               return (
                 <g
                   key={f.id}
                   role="button"
                   tabIndex={soloLectura ? -1 : 0}
-                  aria-label={`Flecha de ${nombre(f.origenId)} a ${nombre(f.destinoId)}`}
+                  aria-label={`Flecha de ${nombre(f.origenId)} a ${nombre(f.destinoId)}${f.guarda ? `, guarda ${f.guarda}` : ""}`}
                   aria-pressed={flechaElegida === f.id}
                   className={cn("outline-none", activa ? "text-primary" : "text-slate-500")}
                   onClick={() => !soloLectura && setFlechaElegida(f.id)}
@@ -262,15 +389,31 @@ export function LienzoDiagrama({
                     if (e.key === "Delete" || e.key === "Backspace") onEliminarFlecha(f.id);
                   }}
                 >
-                  <path d={d} fill="none" stroke="transparent" strokeWidth={14} className="cursor-pointer" />
+                  <path d={t.d} fill="none" stroke="transparent" strokeWidth={14} className="cursor-pointer" />
                   <path
-                    d={d}
+                    d={t.d}
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={activa ? 3 : 2}
                     markerEnd="url(#punta-flecha)"
                     className={cn(flechaResaltada === f.id && "animate-pulse")}
                   />
+                  {f.guarda && (
+                    // El trazo del color del fondo detrás del texto lo separa de la línea.
+                    <text
+                      x={t.etiqueta.x}
+                      y={t.etiqueta.y}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      paintOrder="stroke"
+                      stroke="var(--muted)"
+                      strokeWidth={4}
+                      fill="currentColor"
+                      className="cursor-pointer text-xs font-medium"
+                    >
+                      [{f.guarda}]
+                    </text>
+                  )}
                 </g>
               );
             })}
@@ -278,30 +421,56 @@ export function LienzoDiagrama({
 
           {nodos.map((n) => {
             const p = posiciones.get(n.id) ?? { x: n.x, y: n.y };
+            const control = esNodoDeControl(n.tipo);
+            const { ancho: w, alto: h } = tamanios[n.tipo];
+            const comun = {
+              type: "button" as const,
+              "aria-pressed": seleccionado === n.id,
+              style: { left: p.x, top: p.y, width: w, height: h },
+              onPointerDown: (e: PointerEvent<HTMLButtonElement>) => alPresionar(e, n),
+              onPointerMove: alMover,
+              onPointerUp: alSoltar,
+              onPointerCancel: () => setArrastre(null),
+              onClick: () => alClick(n.id),
+              onDoubleClick: () => abrir(n),
+              onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => alTeclaNodo(e, n),
+            };
+            const cursor = cn(
+              "touch-none select-none",
+              !soloLectura && !conectando && "cursor-grab active:cursor-grabbing",
+              conectando && "cursor-crosshair",
+            );
+            if (control) {
+              return (
+                <button
+                  key={n.id}
+                  {...comun}
+                  aria-label={etiquetaTipoNodo[n.tipo]}
+                  title={etiquetaTipoNodo[n.tipo]}
+                  className={cn(
+                    "absolute flex items-center justify-center rounded-md",
+                    seleccionado === n.id ? "text-primary ring-2 ring-primary ring-offset-2 ring-offset-muted" : "text-foreground",
+                    origen === n.id && "ring-4 ring-primary/40",
+                    cursor,
+                  )}
+                >
+                  {formaDeControl(n.tipo)}
+                </button>
+              );
+            }
             return (
               <button
                 key={n.id}
-                type="button"
+                {...comun}
                 aria-label={`Actividad ${n.nombre}${n.internas ? `, ${cantidad(n.internas, "interna", "internas")}` : ""}`}
                 // El nombre se corta a una línea; el título lo muestra completo.
                 title={n.nombre}
-                aria-pressed={seleccionado === n.id}
                 className={cn(
                   "absolute flex flex-col items-start justify-center gap-0.5 rounded-[var(--radius)] border-2 bg-card px-3 text-left shadow-sm",
-                  "touch-none select-none",
                   seleccionado === n.id ? "border-primary" : "border-input",
                   origen === n.id && "ring-4 ring-primary/40",
-                  !soloLectura && !conectando && "cursor-grab active:cursor-grabbing",
-                  conectando && "cursor-crosshair",
+                  cursor,
                 )}
-                style={{ left: p.x, top: p.y, width: ANCHO_NODO, height: ALTO_NODO }}
-                onPointerDown={(e) => alPresionar(e, n)}
-                onPointerMove={alMover}
-                onPointerUp={alSoltar}
-                onPointerCancel={() => setArrastre(null)}
-                onClick={() => alClick(n.id)}
-                onDoubleClick={() => onAbrirNodo(n.id)}
-                onKeyDown={(e) => alTeclaNodo(e, n)}
               >
                 <span className="line-clamp-1 text-sm font-semibold">{n.nombre}</span>
                 <span className="text-xs text-muted-foreground">

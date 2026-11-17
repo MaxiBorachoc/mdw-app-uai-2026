@@ -9,7 +9,7 @@
  * posición solo si tiene padre) no se validan acá sino en lib/documentacion.ts.
  */
 import { z } from "zod";
-import { IdSchema } from "./comun";
+import { IdSchema, TipoNodoSchema } from "./comun";
 
 // Longitudes máximas: docs/spec.md sección 3.
 export const NOMBRE_ACTIVIDAD_MAX = 100;
@@ -31,13 +31,49 @@ export const contenidoActividadSchema = z.object({
 // La posición en el lienzo: null en un diagrama (actividad sin padre).
 const posicion = z.number().finite().min(-100_000).max(100_000).nullable();
 
+// En el borrador, el nombre puede venir vacío: los nodos de control no tienen (H16).
+// Que una actividad sí lo tenga lo controla reglasDeNodo, igual que el resto de las
+// diferencias por tipo.
 export const actividadEnBorradorSchema = contenidoActividadSchema.extend({
+  tipo: TipoNodoSchema.default("ACTIVIDAD"),
+  nombre: z
+    .string()
+    .trim()
+    .max(NOMBRE_ACTIVIDAD_MAX, `El nombre no puede superar los ${NOMBRE_ACTIVIDAD_MAX} caracteres`),
   padreId: IdSchema.nullable(),
   posicionX: posicion,
   posicionY: posicion,
   historiaIds: z.array(IdSchema).max(HISTORIAS_POR_ACTIVIDAD_MAX),
 });
 export type ActividadContenido = z.infer<typeof actividadEnBorradorSchema>;
+
+/**
+ * H16: lo que se puede decidir mirando solo el nodo (sin el resto del proyecto).
+ * Una actividad necesita nombre; un nodo de control no tiene nombre, documentación
+ * ni historias, y siempre está dentro de un diagrama. Para usar con .superRefine.
+ */
+export function reglasDeNodo(
+  nodo: Pick<ActividadContenido, "tipo" | "nombre" | "documentacion" | "historiaIds" | "padreId"> & { eliminado?: boolean },
+  ctx: z.RefinementCtx,
+) {
+  if (nodo.eliminado) return;
+  if (nodo.tipo === "ACTIVIDAD") {
+    if (nodo.nombre.length === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["nombre"], message: "El nombre de la actividad es obligatorio" });
+    }
+    return;
+  }
+  if (nodo.nombre || nodo.documentacion || nodo.historiaIds.length > 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["tipo"],
+      message: "Un nodo de control no tiene nombre, documentación ni historias asociadas",
+    });
+  }
+  if (nodo.padreId === null) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["padreId"], message: "Un nodo de control siempre está dentro de un diagrama" });
+  }
+}
 
 export const ActividadSchema = z.object({
   id: IdSchema,

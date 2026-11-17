@@ -26,6 +26,7 @@ const actividad = (id: string, padreId: string | null, extra: Partial<Actividad>
   id,
   numeroVersion: 1,
   eliminado: false,
+  tipo: "ACTIVIDAD",
   nombre: id,
   documentacion: "",
   padreId,
@@ -41,6 +42,7 @@ const flecha = (id: string, origenId: string, destinoId: string, extra: Partial<
   eliminado: false,
   origenId,
   destinoId,
+  guarda: "",
   ...extra,
 });
 
@@ -253,7 +255,7 @@ describe("confirmar cambios: actividades (H5, H6, H7)", () => {
 });
 
 describe("confirmar cambios: flechas (H10)", () => {
-  const nueva = (id: string, origenId: string, destinoId: string) => ({ id, base: null, eliminado: false, origenId, destinoId });
+  const nueva = (id: string, origenId: string, destinoId: string) => ({ id, base: null, eliminado: false, origenId, destinoId, guarda: "" });
 
   it("permite una flecha de una actividad hacia sí misma y los ciclos", () => {
     const cambios = sinCambios();

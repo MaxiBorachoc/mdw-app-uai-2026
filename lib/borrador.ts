@@ -65,12 +65,13 @@ export function eliminarHistoria(b: Borrador, id: string): Borrador {
 export function crearActividad(
   b: Borrador,
   id: string,
-  datos: Pick<ActividadContenido, "nombre" | "padreId" | "posicionX" | "posicionY">,
+  datos: Pick<ActividadContenido, "nombre" | "padreId" | "posicionX" | "posicionY"> & Partial<Pick<ActividadContenido, "tipo">>,
 ): Borrador {
   const nueva: Actividad = {
     id,
     numeroVersion: 0,
     eliminado: false,
+    tipo: "ACTIVIDAD",
     documentacion: "",
     historiaIds: [],
     ...datos,
@@ -169,8 +170,13 @@ export function crearConexion(
       existente: null,
     };
   }
-  const nueva: Conexion = { id, numeroVersion: 0, eliminado: false, origenId, destinoId };
+  const nueva: Conexion = { id, numeroVersion: 0, eliminado: false, origenId, destinoId, guarda: "" };
   return { borrador: { ...b, actual: { ...b.actual, conexiones: [...b.actual.conexiones, nueva] } }, existente: null };
+}
+
+/** H16: la guarda de una flecha (condición opcional entre corchetes). */
+export function editarGuarda(b: Borrador, id: string, guarda: string): Borrador {
+  return { ...b, actual: { ...b.actual, conexiones: reemplazar(b.actual.conexiones, id, (c) => ({ ...c, guarda })) } };
 }
 
 export function eliminarConexion(b: Borrador, id: string): Borrador {
@@ -200,6 +206,7 @@ function cambioActividad(a: Actividad, b: Actividad | undefined) {
   return (
     !b ||
     a.eliminado !== b.eliminado ||
+    a.tipo !== b.tipo ||
     a.nombre !== b.nombre ||
     a.documentacion !== b.documentacion ||
     a.padreId !== b.padreId ||
@@ -210,7 +217,7 @@ function cambioActividad(a: Actividad, b: Actividad | undefined) {
 }
 
 function cambioConexion(a: Conexion, b: Conexion | undefined) {
-  return !b || a.eliminado !== b.eliminado || a.origenId !== b.origenId || a.destinoId !== b.destinoId;
+  return !b || a.eliminado !== b.eliminado || a.origenId !== b.origenId || a.destinoId !== b.destinoId || a.guarda !== b.guarda;
 }
 
 /** Lo que se manda al confirmar: el estado final de cada elemento modificado. */
@@ -237,6 +244,7 @@ export function cambiosParaConfirmar(b: Borrador): Cambios {
         id: a.id,
         base: base(a, b.confirmado.actividades),
         eliminado: a.eliminado,
+        tipo: a.tipo,
         nombre: a.nombre,
         documentacion: a.documentacion,
         padreId: a.padreId,
@@ -252,6 +260,7 @@ export function cambiosParaConfirmar(b: Borrador): Cambios {
         eliminado: c.eliminado,
         origenId: c.origenId,
         destinoId: c.destinoId,
+        guarda: c.guarda,
       })),
   };
 }

@@ -19,12 +19,12 @@ import type { Estado } from "./documentacion";
 const confirmado = (): Estado => ({
   historias: [{ id: "h1", numeroVersion: 1, eliminado: false, titulo: "Pagar", descripcion: "d", criteriosAceptacion: ["c"] }],
   actividades: [
-    { id: "D", numeroVersion: 1, eliminado: false, nombre: "D", documentacion: "", padreId: null, posicionX: null, posicionY: null, historiaIds: [] },
-    { id: "A", numeroVersion: 3, eliminado: false, nombre: "A", documentacion: "", padreId: "D", posicionX: 0, posicionY: 0, historiaIds: [] },
-    { id: "B", numeroVersion: 1, eliminado: false, nombre: "B", documentacion: "", padreId: "D", posicionX: 200, posicionY: 0, historiaIds: [] },
-    { id: "C", numeroVersion: 1, eliminado: false, nombre: "C", documentacion: "", padreId: "A", posicionX: 0, posicionY: 0, historiaIds: [] },
+    { id: "D", numeroVersion: 1, eliminado: false, tipo: "ACTIVIDAD", nombre: "D", documentacion: "", padreId: null, posicionX: null, posicionY: null, historiaIds: [] },
+    { id: "A", numeroVersion: 3, eliminado: false, tipo: "ACTIVIDAD", nombre: "A", documentacion: "", padreId: "D", posicionX: 0, posicionY: 0, historiaIds: [] },
+    { id: "B", numeroVersion: 1, eliminado: false, tipo: "ACTIVIDAD", nombre: "B", documentacion: "", padreId: "D", posicionX: 200, posicionY: 0, historiaIds: [] },
+    { id: "C", numeroVersion: 1, eliminado: false, tipo: "ACTIVIDAD", nombre: "C", documentacion: "", padreId: "A", posicionX: 0, posicionY: 0, historiaIds: [] },
   ],
-  conexiones: [{ id: "f1", numeroVersion: 1, eliminado: false, origenId: "A", destinoId: "B" }],
+  conexiones: [{ id: "f1", numeroVersion: 1, eliminado: false, origenId: "A", destinoId: "B", guarda: "" }],
 });
 
 describe("borrador (H12)", () => {

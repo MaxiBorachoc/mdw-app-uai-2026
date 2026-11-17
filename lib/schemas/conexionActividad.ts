@@ -11,9 +11,14 @@
 import { z } from "zod";
 import { IdSchema } from "./comun";
 
+// H16: longitud máxima de la guarda (docs/spec.md sección 3).
+export const GUARDA_MAX = 100;
+
 export const conexionEnBorradorSchema = z.object({
   origenId: IdSchema,
   destinoId: IdSchema,
+  // H16: condición opcional; se muestra entre corchetes sobre la flecha.
+  guarda: z.string().trim().max(GUARDA_MAX, `La guarda no puede superar los ${GUARDA_MAX} caracteres`).default(""),
 });
 export type ConexionContenido = z.infer<typeof conexionEnBorradorSchema>;
 
