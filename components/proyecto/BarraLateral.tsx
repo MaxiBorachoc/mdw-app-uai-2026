@@ -27,11 +27,6 @@ type Acordeon = "historias" | "diagramas";
 
 const porNombre = (a: { nombre: string }, b: { nombre: string }) => a.nombre.localeCompare(b.nombre, "es");
 
-// Árbol compacto: cada nivel suma 1rem de sangría hasta el nivel TOPE_SANGRIA; los
-// más profundos dejan de correrse y muestran su nivel ("N7") para no perder la
-// noción de profundidad. Así ningún nivel se queda sin lugar para el nombre.
-const TOPE_SANGRIA = 5;
-
 export function BarraLateral({
   historias,
   actividades,
@@ -97,7 +92,7 @@ export function BarraLateral({
       return nuevas;
     });
 
-  const enlace = (texto: string, activo: boolean, alElegir: () => void, extra?: ReactNode) => (
+  const enlace = (texto: string, activo: boolean, alElegir: () => void) => (
     <button
       type="button"
       // El nombre completo al pasar el mouse: los largos se cortan en dos líneas.
@@ -110,11 +105,12 @@ export function BarraLateral({
       )}
     >
       <span className="line-clamp-2 min-w-0 flex-1 break-words">{texto}</span>
-      {extra}
     </button>
   );
 
-  const arbol = (padreId: string | null, nivel: number): ReactNode => {
+  // Sin sangría: las internas se listan debajo de su actividad, alineadas con ella.
+  // La flecha girada de la actividad indica que está desplegada.
+  const arbol = (padreId: string | null): ReactNode => {
     const lista = [...(hijas.get(padreId) ?? [])].sort(porNombre);
     if (lista.length === 0) return null;
     return (
@@ -125,8 +121,7 @@ export function BarraLateral({
           const desplegada = desplegadas.has(a.id);
           return (
             <li key={a.id}>
-              {/* Sangría calculada según el nivel (valor de runtime: único estilo en línea). */}
-              <div className="flex items-start" style={{ paddingLeft: `${Math.min(nivel, TOPE_SANGRIA)}rem` }}>
+              <div className="flex items-start">
                 {tieneInternas ? (
                   <button
                     type="button"
@@ -142,18 +137,9 @@ export function BarraLateral({
                 ) : (
                   <span aria-hidden="true" className="h-6 w-6 shrink-0" />
                 )}
-                {enlace(
-                  nombre,
-                  elegida("actividad", a.id),
-                  () => onSeleccionar({ tipo: "actividad", id: a.id }),
-                  nivel > TOPE_SANGRIA && (
-                    <span className="ml-1 shrink-0 rounded bg-muted px-1 text-xs text-muted-foreground">
-                      <span className="sr-only">nivel </span>N{nivel + 1}
-                    </span>
-                  ),
-                )}
+                {enlace(nombre, elegida("actividad", a.id), () => onSeleccionar({ tipo: "actividad", id: a.id }))}
               </div>
-              {tieneInternas && desplegada && arbol(a.id, nivel + 1)}
+              {tieneInternas && desplegada && arbol(a.id)}
             </li>
           );
         })}
@@ -246,7 +232,7 @@ export function BarraLateral({
             Nuevo diagrama
           </Button>
         ),
-        arbol(null, 0) ?? <p className="px-2 text-sm text-muted-foreground">Todavía no hay diagramas.</p>,
+        arbol(null) ?? <p className="px-2 text-sm text-muted-foreground">Todavía no hay diagramas.</p>,
       )}
     </nav>
   );
