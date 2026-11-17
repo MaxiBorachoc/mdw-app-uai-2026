@@ -40,3 +40,14 @@ const formatoFechaCorta = new Intl.DateTimeFormat("es-AR", { dateStyle: "medium"
 export function formatearFecha(texto: string) {
   return formatoFechaCorta.format(fechaDeTexto(texto));
 }
+
+const sinTildes = (texto: string) =>
+  texto
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLocaleLowerCase("es");
+
+/** Si `texto` contiene `busqueda`, sin distinguir mayúsculas ni tildes. Una búsqueda vacía coincide con todo. */
+export function contieneTexto(texto: string, busqueda: string) {
+  return sinTildes(texto).includes(sinTildes(busqueda.trim()));
+}

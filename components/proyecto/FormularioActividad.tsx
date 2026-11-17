@@ -7,6 +7,7 @@
  * que valida el servidor (lib/schemas/actividad.ts).
  */
 import { useState } from "react";
+import { SelectorHistorias } from "@/components/proyecto/SelectorHistorias";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -95,32 +96,13 @@ export function FormularioActividad({
         {historias.length === 0 ? (
           <p className="text-sm text-muted-foreground">El proyecto todavía no tiene historias de usuario.</p>
         ) : (
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {historias.map((h) => {
-              const marcada = actividad.historiaIds.includes(h.id);
-              return (
-                <li key={h.id} className="flex items-start gap-2">
-                  <input
-                    id={id(`historia-${h.id}`)}
-                    type="checkbox"
-                    className="mt-1 size-4 accent-[var(--primary)]"
-                    checked={marcada}
-                    disabled={soloLectura}
-                    onChange={() =>
-                      onCambiar({
-                        historiaIds: marcada
-                          ? actividad.historiaIds.filter((x) => x !== h.id)
-                          : [...actividad.historiaIds, h.id],
-                      })
-                    }
-                  />
-                  <label htmlFor={id(`historia-${h.id}`)} className="text-sm">
-                    {h.titulo}
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
+          <SelectorHistorias
+            prefijo={prefijo}
+            historias={historias}
+            asociadas={actividad.historiaIds}
+            soloLectura={soloLectura}
+            onCambiar={(historiaIds) => onCambiar({ historiaIds })}
+          />
         )}
       </fieldset>
 

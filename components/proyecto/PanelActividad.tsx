@@ -101,6 +101,8 @@ export function PanelActividad({
         </CardHeader>
         <CardContent>
           <LienzoDiagrama
+            // Cada diagrama se abre con la vista inicial (H5).
+            key={a.id}
             titulo={a.nombre}
             nodos={nodos}
             flechas={flechas}

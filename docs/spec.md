@@ -361,6 +361,11 @@ Criterios de aceptación:
       lienzo.
 - [ ] Un proyecto puede tener cualquier cantidad de diagramas. La barra lateral los lista a todos.
 - [ ] Al abrir un diagrama se ve su lienzo, con las actividades hijas y las flechas entre ellas.
+- [ ] El lienzo no tiene barras de desplazamiento: el usuario desplaza la vista manteniendo apretado el
+      botón principal del mouse sobre el fondo y arrastrando, y la acerca o aleja con la rueda del
+      mouse con el cursor sobre el lienzo (se acerca hacia donde está el cursor). Desplazar o acercar
+      la vista no cambia las posiciones de las actividades ni genera cambios; cada diagrama se abre con
+      la vista inicial.
 - [ ] Caso de error: si el nombre está vacío o supera la longitud máxima, no se guarda y se muestra el
       motivo.
 
@@ -375,6 +380,12 @@ Criterios de aceptación:
 - [ ] El usuario edita el nombre y la documentación de una actividad.
 - [ ] El usuario asocia una actividad (de cualquier nivel, incluido un diagrama) a una o más historias
       de usuario vigentes del proyecto, y puede quitar asociaciones.
+- [ ] Los datos de la actividad muestran solo las historias asociadas, como etiquetas en orden
+      alfabético; cada una tiene una × para quitar la asociación. Debajo, un buscador lista las
+      historias vigentes que todavía no están asociadas (todas al entrar al campo, o las que contienen
+      el texto escrito, sin distinguir mayúsculas ni tildes); al elegir una, se asocia. Se usa con el
+      mouse o con el teclado (flechas, `Enter` y `Escape`).
+- [ ] En solo lectura se ven las etiquetas, sin la × ni el buscador.
 - [ ] El usuario mueve una actividad dentro del lienzo arrastrándola, o con el teclado. Al confirmar,
       la posición final queda guardada en una revisión nueva: al volver al diagrama, y al mirar ese
       build más adelante, la actividad está en el mismo lugar. Arrastrarla varias veces antes de
@@ -462,8 +473,10 @@ Criterios de aceptación:
 repeticiones de un proceso.
 
 Criterios de aceptación:
-- [ ] Dentro de un lienzo, el usuario crea una flecha eligiendo una actividad de origen y una de
-      destino. La flecha se dibuja sola, de borde a borde de los nodos.
+- [ ] Dentro de un lienzo, el usuario elige "Conectar elementos" (la figura de una flecha en la barra de
+      herramientas, ver H16) y crea una flecha eligiendo un elemento de origen y uno de destino. Volver
+      a elegir "Conectar elementos" cancela la conexión. La flecha se dibuja sola, de borde a borde de
+      los nodos.
 - [ ] Se permite una flecha de una actividad hacia sí misma, y se permiten ciclos (A → B → A), para
       modelar procesos repetitivos. Un nodo de control no puede tener una flecha hacia sí mismo (H16).
 - [ ] El usuario elimina una flecha sin eliminar las actividades que une.
@@ -490,9 +503,9 @@ Criterios de aceptación:
       cada actividad con sus actividades internas, en todos los niveles.
 - [ ] Cada elemento del árbol que tiene actividades internas se puede desplegar y plegar. Al entrar,
       los niveles arrancan plegados, salvo el camino hasta el elemento que se está viendo.
-- [ ] En anidaciones profundas, cada nivel se corre un poco más a la derecha hasta un tope; los niveles
-      más profundos quedan en ese tope y muestran su número de nivel. Un nombre que no entra se ve
-      completo al pasar el mouse.
+- [ ] El árbol no tiene sangría: al desplegar un elemento, sus actividades internas se listan debajo
+      de él, alineadas con él. La flecha girada del elemento indica que está desplegado. Un nombre que
+      no entra se ve completo al pasar el mouse.
 - [ ] Seleccionar un elemento en la barra abre su detalle en el panel principal.
 - [ ] La barra respeta el build que se está mirando: en una versión cerrada muestra los elementos de
       ese momento.
@@ -615,9 +628,12 @@ Criterios de aceptación:
 condiciones en las flechas, **para** modelar un diagrama de actividades completo según UML.
 
 Criterios de aceptación:
-- [ ] En la barra de herramientas del lienzo, además de "Nueva actividad", el usuario agrega un
-      **nodo inicial**, un **nodo final de actividad**, un **nodo final de flujo**, una **decisión** o
-      una **bifurcación**. Cada tipo se dibuja con su forma de UML (ver sección 3).
+- [ ] La barra de herramientas del lienzo muestra la figura de cada elemento que se puede agregar:
+      **actividad**, **nodo inicial**, **nodo final de actividad**, **nodo final de flujo**,
+      **decisión** y **bifurcación**, cada una con su forma de UML (ver sección 3), y la de una flecha
+      para **conectar elementos** (H10). Al hacer clic en una figura, el elemento se agrega al diagrama.
+      Al pasar el mouse sobre una figura se ve su nombre: "Actividad", "Nodo inicial", "Nodo final de
+      actividad", "Nodo final de flujo", "Decisión", "Bifurcación" y "Conectar elementos".
 - [ ] Los nodos de control se mueven, se conectan con flechas, se eliminan y se versionan igual que
       las actividades, y se guardan con "Confirmar cambios" (H12).
 - [ ] Los nodos de control no aparecen en la barra lateral: solo en el lienzo de su diagrama.

@@ -4,22 +4,36 @@
  * El lienzo de un diagrama (H5, H6, H7, H10, H16): los nodos internos de una
  * actividad (actividades y nodos de control de UML) y las flechas entre ellos.
  *
+ * - La barra de herramientas muestra la figura de cada elemento que se agrega y una
+ *   flecha para conectar (H16); el nombre de cada uno aparece al pasar el mouse.
  * - Un nodo se arrastra con el mouse o se mueve con las flechas del teclado. La
  *   posición se pasa al borrador al soltar: un arrastre es un solo cambio.
+ * - Sin barras de desplazamiento (H5): arrastrar el fondo desplaza la vista y la
+ *   rueda del mouse la acerca o aleja. La vista no se guarda (ver lib/lienzo.ts).
  * - Doble clic (o Enter) abre el diagrama interno de una actividad. Los nodos de
  *   control no tienen diagrama interno.
- * - "Conectar nodos" une un origen y un destino; las reglas de UML que se validan
- *   (H16) las controla quien recibe el gesto.
+ * - "Conectar elementos" une un origen y un destino; las reglas de UML que se
+ *   validan (H16) las controla quien recibe el gesto.
  * - Las flechas se dibujan solas, de borde a borde de la forma de cada nodo, con su
  *   guarda entre corchetes si tiene una.
  *
  * No guarda nada: avisa cada gesto al componente padre, que actualiza el borrador.
- * Las coordenadas son píxeles del lienzo: así se guardan las posiciones (posición X e Y).
+ * Las coordenadas son píxeles del diagrama: así se guardan las posiciones (posición X e Y).
  */
-import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FocusEvent,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { esNodoDeControl, etiquetaTipoNodo, type TipoNodo } from "@/lib/documentacion";
+import { acercarVista, desplazarVista, VISTA_INICIAL, type Vista } from "@/lib/lienzo";
 import { GUARDA_MAX } from "@/lib/schemas/conexionActividad";
 import { cantidad, cn } from "@/lib/utils";
 
@@ -43,7 +57,15 @@ const tamanios: Record<TipoNodo, { ancho: number; alto: number }> = {
   BIFURCACION: { ancho: 128, alto: 14 },
 };
 
-const CONTROLES: TipoNodo[] = ["INICIAL", "FINAL_ACTIVIDAD", "FINAL_FLUJO", "DECISION", "BIFURCACION"];
+// Las figuras de la barra de herramientas, en ese orden, con su tamaño de ícono.
+const HERRAMIENTAS: { tipo: TipoNodo; ancho: number; alto: number }[] = [
+  { tipo: "ACTIVIDAD", ancho: 28, alto: 18 },
+  { tipo: "INICIAL", ancho: 18, alto: 18 },
+  { tipo: "FINAL_ACTIVIDAD", ancho: 20, alto: 20 },
+  { tipo: "FINAL_FLUJO", ancho: 20, alto: 20 },
+  { tipo: "DECISION", ancho: 22, alto: 22 },
+  { tipo: "BIFURCACION", ancho: 28, alto: 6 },
+];
 
 /**
  * Punto del borde de un nodo en dirección a (dx, dy) desde su centro, según su
@@ -63,30 +85,42 @@ function borde(cx: number, cy: number, dx: number, dy: number, tipo: TipoNodo) {
   return { x: cx + dx * t, y: cy + dy * t };
 }
 
-/** La forma de UML de un nodo de control, dibujada dentro de su botón. */
-function formaDeControl(tipo: TipoNodo): ReactNode {
-  const { ancho, alto } = tamanios[tipo];
+/**
+ * La forma de UML de un nodo: la de un nodo de control dentro de su botón en el
+ * lienzo, o la de cualquier tipo como figura de la barra de herramientas (con el
+ * tamaño del ícono).
+ */
+function forma(tipo: TipoNodo, { ancho, alto } = tamanios[tipo]): ReactNode {
   const svg = (contenido: ReactNode) => (
     <svg width={ancho} height={alto} viewBox={`0 0 ${ancho} ${alto}`} aria-hidden="true" className="overflow-visible">
       {contenido}
     </svg>
   );
   const c = ancho / 2;
+  // Proporciones del punto y de la cruz de los nodos finales (sobre un círculo de 36: 11 y 7).
+  const punto = c * 0.61;
+  const cruz = c * 0.39;
   switch (tipo) {
+    case "ACTIVIDAD":
+      return svg(<rect x={1} y={1} width={ancho - 2} height={alto - 2} rx={4} fill="var(--card)" stroke="currentColor" strokeWidth={2} />);
     case "INICIAL":
       return svg(<circle cx={c} cy={c} r={c - 1} fill="currentColor" />);
     case "FINAL_ACTIVIDAD":
       return svg(
         <>
           <circle cx={c} cy={c} r={c - 1.5} fill="var(--card)" stroke="currentColor" strokeWidth={2} />
-          <circle cx={c} cy={c} r={c - 7} fill="currentColor" />
+          <circle cx={c} cy={c} r={punto} fill="currentColor" />
         </>,
       );
     case "FINAL_FLUJO":
       return svg(
         <>
           <circle cx={c} cy={c} r={c - 1.5} fill="var(--card)" stroke="currentColor" strokeWidth={2} />
-          <path d={`M ${c - 7} ${c - 7} L ${c + 7} ${c + 7} M ${c + 7} ${c - 7} L ${c - 7} ${c + 7}`} stroke="currentColor" strokeWidth={2} />
+          <path
+            d={`M ${c - cruz} ${c - cruz} L ${c + cruz} ${c + cruz} M ${c + cruz} ${c - cruz} L ${c - cruz} ${c + cruz}`}
+            stroke="currentColor"
+            strokeWidth={2}
+          />
         </>,
       );
     case "DECISION":
@@ -94,11 +128,17 @@ function formaDeControl(tipo: TipoNodo): ReactNode {
         <polygon points={`${c},1 ${ancho - 1},${alto / 2} ${c},${alto - 1} 1,${alto / 2}`} fill="var(--card)" stroke="currentColor" strokeWidth={2} />,
       );
     case "BIFURCACION":
-      return svg(<rect x={0} y={0} width={ancho} height={alto} rx={3} fill="currentColor" />);
-    default:
-      return null;
+      return svg(<rect x={0} y={0} width={ancho} height={alto} rx={Math.min(3, alto / 2)} fill="currentColor" />);
   }
 }
+
+/** La figura de "Conectar elementos": una flecha. */
+const iconoFlecha = (
+  <svg width={28} height={18} viewBox="0 0 28 18" aria-hidden="true">
+    <path d="M 2 9 L 21 9" stroke="currentColor" strokeWidth={2} />
+    <path d="M 19 4 L 27 9 L 19 14 z" fill="currentColor" />
+  </svg>
+);
 
 /** Un lugar libre para un nodo nuevo, recorriendo una grilla. */
 export function lugarLibre(nodos: { x: number; y: number }[]): { x: number; y: number } {
@@ -148,7 +188,10 @@ export function LienzoDiagrama({
   const [flechaElegida, setFlechaElegida] = useState<string | null>(null);
   // Después de arrastrar, el navegador igual dispara un click: se lo ignora.
   const ignorarClick = useRef(false);
-  const menuControles = useRef<HTMLDetailsElement>(null);
+  const [vista, setVista] = useState<Vista>(VISTA_INICIAL);
+  // Mientras se arrastra el fondo: el último punto del puntero.
+  const [paneo, setPaneo] = useState<{ x: number; y: number } | null>(null);
+  const recuadro = useRef<HTMLDivElement>(null);
 
   const porId = useMemo(() => new Map(nodos.map((n) => [n.id, n])), [nodos]);
   const posiciones = useMemo(() => {
@@ -168,7 +211,62 @@ export function LienzoDiagrama({
   const crear = (tipo: TipoNodo) => {
     const lugar = lugarLibre(nodos);
     onCrearNodo(lugar.x, lugar.y, tipo);
-    menuControles.current?.removeAttribute("open");
+  };
+
+  // Lo que mide el recuadro visible y el diagrama, para no perder el diagrama de vista.
+  const medidas = () => ({
+    anchoVisible: recuadro.current?.clientWidth ?? 0,
+    altoVisible: recuadro.current?.clientHeight ?? 0,
+    anchoDiagrama: ancho,
+    altoDiagrama: alto,
+  });
+
+  // La rueda acerca o aleja hacia el cursor. Se escucha a mano porque React registra
+  // la rueda como pasiva y así no se puede evitar que se desplace la página.
+  useEffect(() => {
+    const r = recuadro.current;
+    if (!r) return;
+    const alGirar = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+      const caja = r.getBoundingClientRect();
+      const m = { anchoVisible: r.clientWidth, altoVisible: r.clientHeight, anchoDiagrama: ancho, altoDiagrama: alto };
+      setVista((v) => acercarVista(v, delta, e.clientX - caja.left, e.clientY - caja.top, m));
+    };
+    r.addEventListener("wheel", alGirar, { passive: false });
+    return () => r.removeEventListener("wheel", alGirar);
+  }, [ancho, alto]);
+
+  // Arrastrar el fondo (no un nodo ni una flecha) desplaza la vista.
+  const alPresionarFondo = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || (e.target as Element).closest('button, [role="button"]')) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setPaneo({ x: e.clientX, y: e.clientY });
+  };
+  const alMoverFondo = (e: PointerEvent<HTMLDivElement>) => {
+    if (!paneo) return;
+    const m = medidas();
+    setVista((v) => desplazarVista(v, e.clientX - paneo.x, e.clientY - paneo.y, m));
+    setPaneo({ x: e.clientX, y: e.clientY });
+  };
+
+  // Un nodo que se recorre o se mueve con el teclado no queda fuera de la vista.
+  const mostrar = (n: { tipo: TipoNodo; x: number; y: number }) => {
+    const m = medidas();
+    const { ancho: w, alto: h } = tamanios[n.tipo];
+    setVista((v) => {
+      const izquierda = v.x + n.x * v.escala;
+      const arriba = v.y + n.y * v.escala;
+      const derecha = izquierda + w * v.escala;
+      const abajo = arriba + h * v.escala;
+      const dx = izquierda < 0 ? 16 - izquierda : derecha > m.anchoVisible ? m.anchoVisible - 16 - derecha : 0;
+      const dy = arriba < 0 ? 16 - arriba : abajo > m.altoVisible ? m.altoVisible - 16 - abajo : 0;
+      return dx || dy ? desplazarVista(v, dx, dy, m) : v;
+    });
+  };
+  const alEnfocar = (e: FocusEvent<HTMLButtonElement>, n: NodoLienzo) => {
+    // Solo con el teclado: con el mouse el nodo ya está a la vista y la vista no salta.
+    if (e.currentTarget.matches(":focus-visible")) mostrar(n);
   };
 
   const alPresionar = (e: PointerEvent<HTMLButtonElement>, nodo: NodoLienzo) => {
@@ -181,7 +279,10 @@ export function LienzoDiagrama({
     const dx = e.clientX - arrastre.inicioX;
     const dy = e.clientY - arrastre.inicioY;
     const movido = arrastre.movido || Math.hypot(dx, dy) > 4;
-    setArrastre({ ...arrastre, movido, x: Math.max(0, Math.round(arrastre.x0 + dx)), y: Math.max(0, Math.round(arrastre.y0 + dy)) });
+    // El puntero se mueve en píxeles de pantalla; el nodo, en los del diagrama.
+    const x = Math.max(0, Math.round(arrastre.x0 + dx / vista.escala));
+    const y = Math.max(0, Math.round(arrastre.y0 + dy / vista.escala));
+    setArrastre({ ...arrastre, movido, x, y });
   };
   const alSoltar = () => {
     if (!arrastre) return;
@@ -233,7 +334,10 @@ export function LienzoDiagrama({
     const d = delta[e.key];
     if (!d) return;
     e.preventDefault();
-    onMoverNodo(nodo.id, Math.max(0, nodo.x + d[0]), Math.max(0, nodo.y + d[1]));
+    const x = Math.max(0, nodo.x + d[0]);
+    const y = Math.max(0, nodo.y + d[1]);
+    onMoverNodo(nodo.id, x, y);
+    mostrar({ tipo: nodo.tipo, x, y });
   };
 
   const centro = (id: string) => {
@@ -287,35 +391,29 @@ export function LienzoDiagrama({
     <div className="flex flex-col gap-3">
       {!soloLectura && (
         <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label={`Herramientas del diagrama ${titulo}`}>
-          <Button type="button" size="sm" variant="secondary" onClick={() => crear("ACTIVIDAD")}>
-            Nueva actividad
-          </Button>
-          {/* H16: los nodos de control de UML. */}
-          <details ref={menuControles} className="relative">
-            <summary className="flex h-9 cursor-pointer list-none items-center rounded-[var(--radius)] border bg-card px-3 text-sm font-medium hover:bg-muted [&::-webkit-details-marker]:hidden">
-              Nodo de control ▾
-            </summary>
-            <ul className="absolute left-0 z-20 mt-1 flex w-60 flex-col gap-0.5 rounded-[var(--radius)] border bg-card p-1 shadow-lg">
-              {CONTROLES.map((tipo) => (
-                <li key={tipo}>
-                  <button
-                    type="button"
-                    onClick={() => crear(tipo)}
-                    className="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
-                  >
-                    <span className="flex w-10 shrink-0 justify-center text-foreground [&_svg]:max-h-6 [&_svg]:max-w-10">
-                      {formaDeControl(tipo)}
-                    </span>
-                    {etiquetaTipoNodo[tipo]}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </details>
+          {/* H16: la figura de cada elemento; el nombre se ve al pasar el mouse. */}
+          {HERRAMIENTAS.map(({ tipo, ancho: w, alto: h }) => (
+            <Button
+              key={tipo}
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-11 px-0"
+              title={etiquetaTipoNodo[tipo]}
+              aria-label={etiquetaTipoNodo[tipo]}
+              onClick={() => crear(tipo)}
+            >
+              {forma(tipo, { ancho: w, alto: h })}
+            </Button>
+          ))}
+          <span aria-hidden="true" className="mx-1 h-6 w-px bg-border" />
           <Button
             type="button"
             size="sm"
             variant={conectando ? "primary" : "outline"}
+            className="w-11 px-0"
+            title="Conectar elementos"
+            aria-label="Conectar elementos"
             aria-pressed={conectando}
             disabled={nodos.length === 0}
             onClick={() => {
@@ -323,7 +421,7 @@ export function LienzoDiagrama({
               setOrigen(null);
             }}
           >
-            {conectando ? "Cancelar conexión" : "Conectar nodos"}
+            {iconoFlecha}
           </Button>
           {elegida && (
             <>
@@ -344,25 +442,38 @@ export function LienzoDiagrama({
               </Button>
             </>
           )}
-          {/* En su propia línea: si el texto cambia de largo, el lienzo no salta. */}
-          <p className="basis-full text-xs text-muted-foreground" aria-live="polite">
+          {/* En su propia línea y con dos líneas reservadas: si el texto cambia de largo, el lienzo no salta. */}
+          <p className="min-h-8 basis-full text-xs text-muted-foreground" aria-live="polite">
             {conectando
               ? origen
-                ? `Origen: ${nombre(origen)}. Elegí el nodo de destino.`
-                : "Elegí el nodo de origen."
+                ? `Origen: ${nombre(origen)}. Elegí el elemento de destino.`
+                : "Elegí el elemento de origen. Para cancelar, volvé a hacer clic en “Conectar elementos”."
               : elegida
                 ? "La guarda es una condición opcional: se muestra entre corchetes sobre la flecha."
-                : "Arrastrá o usá las flechas del teclado para mover. Doble clic o Enter abre el diagrama interno de una actividad."}
+                : "Arrastrá un elemento (o usá las flechas del teclado) para moverlo, o el fondo para desplazar el diagrama; la rueda del mouse lo acerca o aleja. Doble clic o Enter abre el diagrama interno de una actividad."}
           </p>
         </div>
       )}
 
-      <div className="h-[30rem] overflow-auto rounded-[var(--radius)] border bg-muted">
+      {/* H5: sin barras de desplazamiento. overflow-clip (y no hidden) para que el
+          navegador no desplace el recuadro por su cuenta al enfocar un nodo. */}
+      <div
+        ref={recuadro}
+        className={cn(
+          "relative h-[30rem] touch-none select-none overflow-clip rounded-[var(--radius)] border bg-muted",
+          paneo ? "cursor-grabbing" : "cursor-grab",
+        )}
+        onPointerDown={alPresionarFondo}
+        onPointerMove={alMoverFondo}
+        onPointerUp={() => setPaneo(null)}
+        onPointerCancel={() => setPaneo(null)}
+      >
         <div
           role="group"
           aria-label={`Diagrama ${titulo}`}
-          className="relative"
-          style={{ width: ancho, height: alto }}
+          className="absolute left-0 top-0 origin-top-left"
+          // La vista (desplazamiento y acercamiento) es un valor de runtime.
+          style={{ width: ancho, height: alto, transform: `translate(${vista.x}px, ${vista.y}px) scale(${vista.escala})` }}
         >
           <svg className="absolute inset-0 text-slate-500" width={ancho} height={alto} aria-hidden={flechas.length === 0}>
             <defs>
@@ -434,9 +545,12 @@ export function LienzoDiagrama({
               onClick: () => alClick(n.id),
               onDoubleClick: () => abrir(n),
               onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => alTeclaNodo(e, n),
+              onFocus: (e: FocusEvent<HTMLButtonElement>) => alEnfocar(e, n),
             };
+            // El fondo muestra la mano de desplazar: cada nodo tiene su propio cursor.
             const cursor = cn(
               "touch-none select-none",
+              soloLectura && "cursor-pointer",
               !soloLectura && !conectando && "cursor-grab active:cursor-grabbing",
               conectando && "cursor-crosshair",
             );
@@ -454,7 +568,7 @@ export function LienzoDiagrama({
                     cursor,
                   )}
                 >
-                  {formaDeControl(n.tipo)}
+                  {forma(n.tipo)}
                 </button>
               );
             }
@@ -480,15 +594,16 @@ export function LienzoDiagrama({
               </button>
             );
           })}
-
-          {nodos.length === 0 && (
-            <p className="absolute left-6 top-6 max-w-sm text-sm text-muted-foreground">
-              {soloLectura
-                ? "Este diagrama no tiene actividades."
-                : "Este diagrama todavía no tiene actividades. Creá la primera con “Nueva actividad”."}
-            </p>
-          )}
         </div>
+
+        {/* Fuera de la vista: el aviso no se desplaza ni se agranda con el diagrama. */}
+        {nodos.length === 0 && (
+          <p className="pointer-events-none absolute left-6 top-6 max-w-sm text-sm text-muted-foreground">
+            {soloLectura
+              ? "Este diagrama no tiene actividades."
+              : "Este diagrama todavía no tiene actividades. Creá la primera con la figura “Actividad” de la barra de herramientas."}
+          </p>
+        )}
       </div>
     </div>
   );
