@@ -11,7 +11,10 @@
     "test": "vitest run",
     "db:seed": "prisma db seed",
     "postinstall": "prisma generate",
-    "db:preparar-profesor": "tsx scripts/preparar-profesor.ts"
+    "db:preparar-profesor": "tsx scripts/preparar-profesor.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",
@@ -24,6 +27,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",

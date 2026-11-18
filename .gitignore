@@ -18,3 +18,8 @@ build/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Playwright / E2E
+.env.e2e
+playwright-report/
+test-results/
