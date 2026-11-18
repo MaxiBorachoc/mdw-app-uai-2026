@@ -96,3 +96,26 @@ Después de tocar `prisma/schema.prisma`, siempre generar una migración. Nunca 
 - Antes de crear un helper nuevo, buscá si ya existe uno en `lib/`.
 - Cuando toques algo de seguridad o del modelo de datos, explicá el porqué del cambio: son las dos áreas que se revisan línea por línea.
 - Antes de dar un cambio por terminado, ejecutá los sensores del repositorio: `npm run typecheck`, `npm test`, `npm run lint` y `npm run build`. Si alguno falla, no entregues el cambio como terminado.
+
+## Pruebas
+
+Las pruebas se separan por capa. No reemplazar una capa por otra:
+
+- `lib/*.test.ts` con Vitest: reglas puras de dominio, sin red ni base.
+- `e2e/permisos.spec.ts` con Playwright contra la API: autorización real del servidor (401/403/404), no botones ocultos.
+- `e2e/flujo-principal.spec.ts` con Playwright y Chromium: recorrido principal entre OWNER, EDITOR y READER desde la interfaz.
+- `e2e/concurrencia.spec.ts` con Playwright contra PostgreSQL local: pedidos simultáneos con `Promise.all` y verificación del estado final en la base.
+
+Los E2E **nunca** corren contra Supabase ni contra una base remota. `.env.e2e` debe apuntar a PostgreSQL local y `playwright.config.ts` bloquea cualquier URL que no sea local y cuyo nombre de base no contenga `e2e` o `test`.
+
+Antes de dar un cambio por terminado ejecutar:
+
+```bash
+npm run typecheck
+npm test
+npm run lint
+npm run build
+npm run test:e2e
+```
+
+Si cambia una regla de negocio, actualizar su Vitest. Si cambia quién puede ejecutar un endpoint, actualizar `e2e/permisos.spec.ts`. Si cambia el recorrido de la sección 5 de la spec, actualizar `e2e/flujo-principal.spec.ts`.
