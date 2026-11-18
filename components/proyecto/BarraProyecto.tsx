@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * La cabecera del espacio del proyecto: nombre y rol, el selector de versión
+ * La cabecera del espacio del proyecto: nombre del proyecto, el selector de versión
  * (H8, H9), el aviso de cambios de otros usuarios y "Confirmar cambios" (H12).
  *
  * "Confirmar cambios" está siempre visible: gris y deshabilitado sin cambios,
@@ -9,9 +9,6 @@
  * cambios sobre algo del borrador (la confirmación va a ser rechazada).
  */
 import Link from "next/link";
-import type { RolProyecto } from "@prisma/client";
-import { RolProyectoBadge } from "@/components/RolProyecto";
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonStyles } from "@/components/ui/button";
 
 export type BuildResumen = {
@@ -34,7 +31,6 @@ const formatoFecha = new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", tim
 export function BarraProyecto({
   proyectoId,
   nombre,
-  rol,
   builds,
   buildVisto,
   puedeEditar,
@@ -52,7 +48,6 @@ export function BarraProyecto({
 }: {
   proyectoId: string;
   nombre: string;
-  rol: RolProyecto;
   builds: BuildResumen[];
   buildVisto: BuildResumen;
   puedeEditar: boolean;
@@ -84,8 +79,6 @@ export function BarraProyecto({
           </Link>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <h1 className="break-words text-xl font-bold tracking-tight sm:text-2xl">{nombre}</h1>
-            <RolProyectoBadge rol={rol} />
-            {!puedeEditar && <Badge variant="neutral">Solo lectura</Badge>}
           </div>
         </div>
 
@@ -189,7 +182,6 @@ export function BarraProyecto({
           {buildVisto.nombre ? ` (${buildVisto.nombre})` : ""}
           {buildVisto.cerradaEl ? `, cerrada el ${formatoFecha.format(new Date(buildVisto.cerradaEl))}` : ""}
           {buildVisto.entregable ? `, del entregable “${buildVisto.entregable}”` : ""}.
-          {finalizado && vistaActual ? " La documentación está en solo lectura." : " Todo está en solo lectura."}
           {buildVisto.descripcion ? ` ${buildVisto.descripcion}` : ""}
         </p>
       )}

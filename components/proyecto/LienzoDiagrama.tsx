@@ -39,13 +39,13 @@ import { Input } from "@/components/ui/input";
 import { esNodoDeControl, etiquetaTipoNodo, type TipoNodo } from "@/lib/documentacion";
 import { acercarVista, arrastrarCarril, desplazarVista, VISTA_INICIAL, type ModoArrastreCarril, type Vista } from "@/lib/lienzo";
 import { GUARDA_MAX } from "@/lib/schemas/conexionActividad";
-import { cantidad, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export const ANCHO_NODO = 176;
 export const ALTO_NODO = 64;
 const PASO_TECLADO = 10;
 
-export type NodoLienzo = { id: string; tipo: TipoNodo; nombre: string; x: number; y: number; internas: number; historias: number };
+export type NodoLienzo = { id: string; tipo: TipoNodo; nombre: string; x: number; y: number };
 export type FlechaLienzo = { id: string; origenId: string; destinoId: string; guarda: string };
 // H17: un carril es una franja vertical de todo el alto del lienzo.
 export type CarrilLienzo = { id: string; nombre: string; x: number; ancho: number };
@@ -728,21 +728,17 @@ export function LienzoDiagrama({
               <button
                 key={n.id}
                 {...comun}
-                aria-label={`Actividad ${n.nombre}${n.internas ? `, ${cantidad(n.internas, "interna", "internas")}` : ""}`}
-                // El nombre se corta a una línea; el título lo muestra completo.
+                aria-label={`Actividad ${n.nombre}`}
+                // El nombre se corta a dos líneas; el título lo muestra completo.
                 title={n.nombre}
                 className={cn(
-                  "absolute flex flex-col items-start justify-center gap-0.5 rounded-[var(--radius)] border-2 bg-card px-3 text-left shadow-sm",
+                  "absolute flex items-center justify-center rounded-[var(--radius)] border-2 bg-card px-3 text-center shadow-sm",
                   seleccionado === n.id ? "border-primary" : "border-input",
                   origen === n.id && "ring-4 ring-primary/40",
                   cursor,
                 )}
               >
-                <span className="line-clamp-1 text-sm font-semibold">{n.nombre}</span>
-                <span className="text-xs text-muted-foreground">
-                  {n.internas > 0 ? cantidad(n.internas, "interna", "internas") : "Sin internas"}
-                  {n.historias > 0 ? ` · ${cantidad(n.historias, "historia", "historias")}` : ""}
-                </span>
+                <span className="line-clamp-2 text-sm font-semibold">{n.nombre}</span>
               </button>
             );
           })}

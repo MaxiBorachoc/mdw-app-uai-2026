@@ -9,6 +9,7 @@ import {
   DESCRIPCION_VERSION_MAX,
   NOMBRE_VERSION_MAX,
 } from "./versionProyecto";
+import { contenidoHistoriaSchema, CRITERIO_ACEPTACION_MAX } from "./historiaUsuario";
 
 const letras = (n: number) => "a".repeat(n);
 const version = { numeroVersion: 1, numeroBuild: 0, numeroPatch: 0, entregableId: "entregable-1" };
@@ -66,5 +67,18 @@ describe("longitudes maximas de la version de proyecto (H8)", () => {
 
   it("borde: nombre y descripcion siguen siendo opcionales", () => {
     expect(cerrarVersionProyectoSchema.safeParse(version).success).toBe(true);
+  });
+});
+
+describe("longitud maxima de un criterio de aceptacion (H3)", () => {
+  const historia = (criterio: string) => ({ titulo: "Titulo", descripcion: "Como x quiero y", criteriosAceptacion: [criterio] });
+
+  it("acepta un criterio de 1000 caracteres", () => {
+    expect(contenidoHistoriaSchema.safeParse(historia(letras(CRITERIO_ACEPTACION_MAX))).success).toBe(true);
+    expect(CRITERIO_ACEPTACION_MAX).toBe(1000);
+  });
+
+  it("rechaza un criterio un caracter por encima del maximo", () => {
+    expect(contenidoHistoriaSchema.safeParse(historia(letras(CRITERIO_ACEPTACION_MAX + 1))).success).toBe(false);
   });
 });

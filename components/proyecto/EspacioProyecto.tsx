@@ -599,8 +599,6 @@ export function EspacioProyecto({
           nombre: a.nombre,
           x: a.posicionX ?? 0,
           y: a.posicionY ?? 0,
-          internas: v.actividades.filter((x) => x.padreId === a.id && x.tipo === "ACTIVIDAD").length,
-          historias: a.historiaIds.length,
         }))}
         flechas={v.conexiones.filter((c) => idsHijas.has(c.origenId))}
         flechaResaltada={flechaResaltada}
@@ -679,7 +677,6 @@ export function EspacioProyecto({
       <BarraProyecto
         proyectoId={proyecto.id}
         nombre={proyecto.definicion.nombre}
-        rol={rol}
         builds={builds}
         buildVisto={buildVisto}
         puedeEditar={puedeEditar}

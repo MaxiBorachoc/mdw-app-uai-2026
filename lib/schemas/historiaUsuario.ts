@@ -12,7 +12,7 @@ import { IdSchema } from "./comun";
 // Longitudes máximas: docs/spec.md sección 3.
 export const TITULO_HISTORIA_MAX = 150;
 export const DESCRIPCION_HISTORIA_MAX = 2000;
-export const CRITERIO_ACEPTACION_MAX = 300;
+export const CRITERIO_ACEPTACION_MAX = 1000;
 export const CRITERIOS_MAX = 50;
 
 export const contenidoHistoriaSchema = z.object({

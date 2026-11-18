@@ -3,8 +3,9 @@
 /**
  * H11: la barra lateral del proyecto. "Proyecto" (la información del proyecto) y un acordeón
  * por tipo de elemento versionable: las historias de usuario, y los diagramas de
- * actividades en árbol (cada diagrama con sus actividades, y cada actividad con
- * sus internas, en todos los niveles). Muestra lo del build que se está mirando.
+ * actividades en árbol (cada diagrama y, debajo, las actividades que tienen su propio
+ * diagrama interno, en todos los niveles; las que no tienen nada adentro solo se ven en
+ * el lienzo). Muestra lo del build que se está mirando.
  *
  * - Un solo acordeón abierto a la vez. La barra tiene un alto fijo que no cambia al
  *   abrir o cerrar acordeones (al costado: el alto de la ventana menos la cabecera;
@@ -85,9 +86,13 @@ export function BarraLateral({
     return () => cancelAnimationFrame(cuadro);
   }, [claveSeleccion]);
 
+  // H11.3: se listan los diagramas: las actividades sin padre y las que tienen algo
+  // adentro (cualquier elemento, también un nodo de control: ya es su diagrama
+  // interno). Las demás, y los nodos de control (H16), solo se ven en el lienzo.
+  const conContenido = new Set(actividades.flatMap((a) => (a.padreId === null ? [] : [a.padreId])));
+  const seLista = (a: Actividad) => a.tipo === "ACTIVIDAD" && (a.padreId === null || conContenido.has(a.id));
   const hijas = new Map<string | null, Actividad[]>();
-  // H16: los nodos de control solo se ven en el lienzo, no en la barra.
-  for (const a of actividades) if (a.tipo === "ACTIVIDAD") hijas.set(a.padreId, [...(hijas.get(a.padreId) ?? []), a]);
+  for (const a of actividades) if (seLista(a)) hijas.set(a.padreId, [...(hijas.get(a.padreId) ?? []), a]);
 
   // El filtro de cada acordeón (H11).
   const [filtros, setFiltros] = useState<Record<Acordeon, string>>({ historias: "", diagramas: "" });
@@ -101,7 +106,8 @@ export function BarraLateral({
   };
 
   // Al filtrar el árbol: las actividades que coinciden y las que las contienen. Las
-  // contenedoras se ven desplegadas.
+  // contenedoras se ven desplegadas. Una actividad que coincide pero no se lista
+  // (no tiene nada adentro) aparece a través del diagrama que la contiene (H11.4).
   const nombreDe = (a: Actividad) => a.nombre || "Sin nombre";
   let visibles: Set<string> | null = null;
   const contenedoras = new Set<string>();
@@ -109,7 +115,7 @@ export function BarraLateral({
     visibles = new Set();
     for (const a of actividades) {
       if (a.tipo !== "ACTIVIDAD" || !contieneTexto(nombreDe(a), filtroDiagramas)) continue;
-      visibles.add(a.id);
+      if (seLista(a)) visibles.add(a.id);
       for (const ancestro of ancestros(actividades, a.id)) {
         visibles.add(ancestro);
         contenedoras.add(ancestro);
