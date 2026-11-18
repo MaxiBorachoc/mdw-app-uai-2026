@@ -15,6 +15,8 @@ import {
   type Actividad,
   type ActividadContenido,
   type Cambios,
+  type Carril,
+  type CarrilContenido,
   type Conexion,
   type Estado,
   type Historia,
@@ -133,7 +135,10 @@ export function alcanceDeEliminacion(b: Borrador, id: string): { actividades: nu
   return { actividades: ids.size - 1, flechas: flechasQueTocan(b, ids).length };
 }
 
-/** H6: eliminar una actividad elimina sus internas y las flechas que las tocan. */
+/**
+ * H6: eliminar una actividad elimina sus internas y las flechas que las tocan. H17:
+ * también los carriles de su diagrama y de los de sus internas.
+ */
 export function eliminarActividad(b: Borrador, id: string): Borrador {
   const ids = new Set([id, ...descendientes(b.actual.actividades, id)]);
   const flechas = new Set(flechasQueTocan(b, ids));
@@ -143,6 +148,7 @@ export function eliminarActividad(b: Borrador, id: string): Borrador {
       ...b.actual,
       actividades: b.actual.actividades.map((a) => (ids.has(a.id) ? { ...a, eliminado: true } : a)),
       conexiones: b.actual.conexiones.map((c) => (flechas.has(c.id) ? { ...c, eliminado: true } : c)),
+      carriles: b.actual.carriles.map((c) => (ids.has(c.diagramaId) ? { ...c, eliminado: true } : c)),
     },
   };
 }
@@ -183,6 +189,23 @@ export function eliminarConexion(b: Borrador, id: string): Borrador {
   return { ...b, actual: { ...b.actual, conexiones: reemplazar(b.actual.conexiones, id, (c) => ({ ...c, eliminado: true })) } };
 }
 
+// --- Carriles (H17) ----------------------------------------------------------------
+
+export function crearCarril(b: Borrador, id: string, contenido: CarrilContenido): Borrador {
+  const nuevo: Carril = { ...contenido, id, numeroVersion: 0, eliminado: false };
+  return { ...b, actual: { ...b.actual, carriles: [...b.actual.carriles, nuevo] } };
+}
+
+/** El nombre, la posición o el ancho. El diagrama de un carril no cambia. */
+export function editarCarril(b: Borrador, id: string, cambio: Partial<Pick<CarrilContenido, "nombre" | "posicionX" | "ancho">>): Borrador {
+  return { ...b, actual: { ...b.actual, carriles: reemplazar(b.actual.carriles, id, (c) => ({ ...c, ...cambio })) } };
+}
+
+/** Eliminar un carril no toca ningún nodo: no hay relación guardada entre ellos. */
+export function eliminarCarril(b: Borrador, id: string): Borrador {
+  return { ...b, actual: { ...b.actual, carriles: reemplazar(b.actual.carriles, id, (c) => ({ ...c, eliminado: true })) } };
+}
+
 // --- Qué se confirma ---------------------------------------------------------------
 
 const mismos = (a: string[], b: string[]) => {
@@ -218,6 +241,17 @@ function cambioActividad(a: Actividad, b: Actividad | undefined) {
 
 function cambioConexion(a: Conexion, b: Conexion | undefined) {
   return !b || a.eliminado !== b.eliminado || a.origenId !== b.origenId || a.destinoId !== b.destinoId || a.guarda !== b.guarda;
+}
+
+function cambioCarril(a: Carril, b: Carril | undefined) {
+  return (
+    !b ||
+    a.eliminado !== b.eliminado ||
+    a.diagramaId !== b.diagramaId ||
+    a.nombre !== b.nombre ||
+    a.posicionX !== b.posicionX ||
+    a.ancho !== b.ancho
+  );
 }
 
 /** Lo que se manda al confirmar: el estado final de cada elemento modificado. */
@@ -262,12 +296,23 @@ export function cambiosParaConfirmar(b: Borrador): Cambios {
         destinoId: c.destinoId,
         guarda: c.guarda,
       })),
+    carriles: b.actual.carriles
+      .filter((c) => relevante(c) && cambioCarril(c, previa(b.confirmado.carriles, c.id)))
+      .map((c) => ({
+        id: c.id,
+        base: base(c, b.confirmado.carriles),
+        eliminado: c.eliminado,
+        diagramaId: c.diagramaId,
+        nombre: c.nombre,
+        posicionX: c.posicionX,
+        ancho: c.ancho,
+      })),
   };
 }
 
 export function hayCambios(b: Borrador): boolean {
   const c = cambiosParaConfirmar(b);
-  return c.historias.length + c.actividades.length + c.conexiones.length > 0;
+  return c.historias.length + c.actividades.length + c.conexiones.length + c.carriles.length > 0;
 }
 
 /** Ids de los elementos ya confirmados que el borrador modifica (para detectar choques, H12). */
@@ -277,6 +322,7 @@ export function elementosModificados(b: Borrador): Map<string, TipoElemento> {
   for (const h of c.historias) if (h.base !== null) resultado.set(h.id, "HISTORIA");
   for (const a of c.actividades) if (a.base !== null) resultado.set(a.id, "ACTIVIDAD");
   for (const x of c.conexiones) if (x.base !== null) resultado.set(x.id, "CONEXION");
+  for (const x of c.carriles) if (x.base !== null) resultado.set(x.id, "CARRIL");
   return resultado;
 }
 
@@ -313,6 +359,7 @@ export function rebasar(b: Borrador, nuevo: Estado): { borrador: Borrador; desca
     historias: aplicar(nuevo.historias, cambios.historias, (c, numeroVersion) => ({ ...c, numeroVersion })),
     actividades: aplicar(nuevo.actividades, cambios.actividades, (c, numeroVersion) => ({ ...c, numeroVersion })),
     conexiones: aplicar(nuevo.conexiones, cambios.conexiones, (c, numeroVersion) => ({ ...c, numeroVersion })),
+    carriles: aplicar(nuevo.carriles, cambios.carriles, (c, numeroVersion) => ({ ...c, numeroVersion })),
   };
   return { borrador: { confirmado: nuevo, actual }, descartados };
 }

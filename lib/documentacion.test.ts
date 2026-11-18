@@ -51,9 +51,10 @@ const base = (): Estado => ({
   historias: [historia("h1", "Pagar factura")],
   actividades: [actividad("D", null), actividad("A", "D"), actividad("B", "D"), actividad("C", "A")],
   conexiones: [flecha("f1", "A", "B")],
+  carriles: [],
 });
 
-const sinCambios = (): Cambios => ({ historias: [], actividades: [], conexiones: [] });
+const sinCambios = (): Cambios => ({ historias: [], actividades: [], conexiones: [], carriles: [] });
 const ids = (tipo: string, temporal: string) => `${tipo.toLowerCase()}-${temporal.slice(6)}`;
 const editar = (a: Actividad, cambios: Partial<Actividad> = {}) => ({ ...a, base: a.numeroVersion, ...cambios });
 const buscar = <T extends { id: string }>(lista: T[], id: string): T => {

@@ -1,7 +1,7 @@
 /**
  * Reglas de la documentación versionada (docs/spec.md, secciones 3 y 6):
- * historias de usuario, actividades (un diagrama es una actividad sin padre) y
- * flechas entre actividades.
+ * historias de usuario, actividades (un diagrama es una actividad sin padre),
+ * flechas entre actividades y carriles de un diagrama.
  *
  * Funciones puras: sin Prisma, sin Next y sin leer el reloj. Las usan el servidor
  * (lib/db/documentacion.ts, al reconstruir un build y al confirmar cambios) y el
@@ -11,26 +11,29 @@
 
 import type { ActividadContenido } from "@/lib/schemas/actividad";
 import type { Cambios } from "@/lib/schemas/cambios";
+import type { CarrilContenido } from "@/lib/schemas/carril";
 import type { ConexionContenido } from "@/lib/schemas/conexionActividad";
 import type { TipoNodo } from "@/lib/schemas/comun";
 import type { HistoriaContenido } from "@/lib/schemas/historiaUsuario";
 
-export type { ActividadContenido, Cambios, ConexionContenido, HistoriaContenido, TipoNodo };
+export type { ActividadContenido, Cambios, CarrilContenido, ConexionContenido, HistoriaContenido, TipoNodo };
 
 type Elemento<C> = C & { id: string; numeroVersion: number; eliminado: boolean };
 
 export type Historia = Elemento<HistoriaContenido>;
 export type Actividad = Elemento<ActividadContenido>;
 export type Conexion = Elemento<ConexionContenido>;
+export type Carril = Elemento<CarrilContenido>;
 
 /** La última revisión de cada elemento, incluidas las que lo dan de baja. */
 export type Estado = {
   historias: Historia[];
   actividades: Actividad[];
   conexiones: Conexion[];
+  carriles: Carril[];
 };
 
-export type TipoElemento = "HISTORIA" | "ACTIVIDAD" | "CONEXION";
+export type TipoElemento = "HISTORIA" | "ACTIVIDAD" | "CONEXION" | "CARRIL";
 
 // ---------------------------------------------------------------------------
 // Reconstrucción de un build
@@ -57,7 +60,7 @@ export function ultimaRevisionHasta<T extends { id: string; numeroVersion: numbe
  * Lo que se muestra de un estado: sin los elementos eliminados ni lo que quedó
  * colgando de ellos (una actividad cuyo padre no está vigente, una flecha cuyo
  * extremo no está vigente o que ya no une actividades del mismo diagrama, una
- * asociación a una historia eliminada).
+ * asociación a una historia eliminada, un carril cuyo diagrama no está vigente).
  */
 export function vigentes(estado: Estado): Estado {
   const historias = estado.historias.filter((h) => !h.eliminado);
@@ -90,7 +93,11 @@ export function vigentes(estado: Estado): Estado {
     return !!origen && !!destino && origen.padreId !== null && origen.padreId === destino.padreId;
   });
 
-  return { historias, actividades, conexiones };
+  // H17: un carril se ve si su diagrama está vigente y es una actividad (los nodos
+  // de control no tienen diagrama interno).
+  const carriles = estado.carriles.filter((c) => !c.eliminado && actividadesVigentes.get(c.diagramaId)?.tipo === "ACTIVIDAD");
+
+  return { historias, actividades, conexiones, carriles };
 }
 
 // ---------------------------------------------------------------------------
@@ -179,6 +186,19 @@ export function motivoFlechaNoPermitida(origen: { id: string; tipo: TipoNodo }, 
 }
 
 // ---------------------------------------------------------------------------
+// Carriles (H17)
+// ---------------------------------------------------------------------------
+
+/** El primer "Carril N" que no usa ningún carril del diagrama. */
+export function nombreCarrilLibre(nombresUsados: string[]): string {
+  const usados = new Set(nombresUsados.map(normalizarTitulo));
+  for (let n = 1; ; n++) {
+    const nombre = `Carril ${n}`;
+    if (!usados.has(normalizarTitulo(nombre))) return nombre;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Títulos de historias
 // ---------------------------------------------------------------------------
 
@@ -209,6 +229,7 @@ export type ResultadoConfirmacion =
       historias: Historia[];
       actividades: Actividad[];
       conexiones: Conexion[];
+      carriles: Carril[];
     }
   | { ok: false; motivo: "CONFLICTO"; elementos: ElementoConProblema[] }
   | { ok: false; motivo: "INVALIDO"; elementos: ElementoConProblema[] };
@@ -245,6 +266,16 @@ function igualesConexion(a: ConexionContenido & { eliminado: boolean }, b: Conex
   );
 }
 
+function igualesCarril(a: CarrilContenido & { eliminado: boolean }, b: CarrilContenido & { eliminado: boolean }) {
+  return (
+    a.eliminado === b.eliminado &&
+    a.diagramaId === b.diagramaId &&
+    a.nombre === b.nombre &&
+    a.posicionX === b.posicionX &&
+    a.ancho === b.ancho
+  );
+}
+
 const nombreDe = {
   historia: (h: { titulo: string }) => h.titulo,
   actividad: nombreNodo,
@@ -262,8 +293,8 @@ const nombreDe = {
  * Además de lo que pidió el usuario, aplica las consecuencias que la regla exige
  * en el mismo cambio: eliminar una actividad elimina sus internas y las flechas
  * que tocan a cualquiera de ellas, y mover una actividad de padre elimina sus
- * flechas. Un cambio que deja el elemento igual que su revisión vigente no genera
- * revisión.
+ * flechas; eliminarla elimina también los carriles de su diagrama (H17). Un cambio
+ * que deja el elemento igual que su revisión vigente no genera revisión.
  *
  * `nuevoId` da el id definitivo para cada elemento creado en el borrador.
  */
@@ -278,6 +309,7 @@ export function aplicarCambios(
   const historiasActuales = new Map(actual.historias.map((h) => [h.id, h]));
   const actividadesActuales = new Map(actual.actividades.map((a) => [a.id, a]));
   const conexionesActuales = new Map(actual.conexiones.map((c) => [c.id, c]));
+  const carrilesActuales = new Map(actual.carriles.map((c) => [c.id, c]));
 
   // 1. Ids definitivos para lo creado en el borrador, y control de versión base.
   const ids = new Map<string, string>();
@@ -306,6 +338,7 @@ export function aplicarCambios(
   for (const h of cambios.historias) revisar("HISTORIA", h, historiasActuales, nombreDe.historia(h));
   for (const a of cambios.actividades) revisar("ACTIVIDAD", a, actividadesActuales, nombreDe.actividad(a));
   for (const c of cambios.conexiones) revisar("CONEXION", c, conexionesActuales, "Flecha");
+  for (const c of cambios.carriles) revisar("CARRIL", c, carrilesActuales, c.nombre);
   if (conflictos.length > 0) return { ok: false, motivo: "CONFLICTO", elementos: conflictos };
   if (invalidos.length > 0) return { ok: false, motivo: "INVALIDO", elementos: invalidos };
 
@@ -313,7 +346,13 @@ export function aplicarCambios(
   const historias = new Map(historiasActuales);
   const actividades = new Map(actividadesActuales);
   const conexiones = new Map(conexionesActuales);
-  const tocadas = { historias: new Set<string>(), actividades: new Set<string>(), conexiones: new Set<string>() };
+  const carriles = new Map(carrilesActuales);
+  const tocadas = {
+    historias: new Set<string>(),
+    actividades: new Set<string>(),
+    conexiones: new Set<string>(),
+    carriles: new Set<string>(),
+  };
 
   for (const h of cambios.historias) {
     const id = resolver(h.id);
@@ -363,9 +402,20 @@ export function aplicarCambios(
     });
     tocadas.conexiones.add(id);
   }
+  for (const c of cambios.carriles) {
+    const id = resolver(c.id);
+    const previo = carrilesActuales.get(id);
+    const nuevo: Carril = { ...c, id, numeroVersion: previo?.numeroVersion ?? 0, diagramaId: resolver(c.diagramaId) };
+    // H17: un carril pertenece a un diagrama y no cambia de diagrama.
+    if (previo && previo.diagramaId !== nuevo.diagramaId) {
+      invalidos.push({ tipo: "CARRIL", id: c.id, nombre: previo.nombre, motivo: "Un carril no cambia de diagrama" });
+    }
+    carriles.set(id, nuevo);
+    tocadas.carriles.add(id);
+  }
 
-  // 3. Consecuencias en el mismo cambio: eliminación en cascada y flechas de una
-  // actividad que cambió de padre.
+  // 3. Consecuencias en el mismo cambio: eliminación en cascada (internas, flechas
+  // y carriles) y flechas de una actividad que cambió de padre.
   const listaActividades = () => [...actividades.values()];
   for (const id of [...tocadas.actividades]) {
     const a = actividades.get(id)!;
@@ -391,6 +441,15 @@ export function aplicarCambios(
     for (const c of conexionesQueTocan([...conexiones.values()], afectadas)) {
       conexiones.set(c.id, { ...c, eliminado: true });
       tocadas.conexiones.add(c.id);
+    }
+    // H17: los carriles del diagrama de una actividad eliminada (o de sus internas).
+    if (a.eliminado && !previa?.eliminado) {
+      for (const c of carriles.values()) {
+        if (!c.eliminado && afectadas.has(c.diagramaId)) {
+          carriles.set(c.id, { ...c, eliminado: true });
+          tocadas.carriles.add(c.id);
+        }
+      }
     }
   }
 
@@ -474,6 +533,30 @@ export function aplicarCambios(
     }
   }
 
+  // H17: el diagrama de un carril tiene que existir y ser una actividad, y el nombre
+  // no se repite entre los carriles vigentes del mismo diagrama.
+  const nombresCarril = new Map<string, string>();
+  for (const c of carriles.values()) {
+    if (c.eliminado) continue;
+    const clave = `${c.diagramaId}|${normalizarTitulo(c.nombre)}`;
+    const otro = nombresCarril.get(clave);
+    if (otro && (tocadas.carriles.has(c.id) || tocadas.carriles.has(otro))) {
+      const culpable = tocadas.carriles.has(c.id) ? c : carriles.get(otro)!;
+      invalidos.push({ tipo: "CARRIL", id: culpable.id, nombre: culpable.nombre, motivo: "Ya existe otro carril con ese nombre en el diagrama" });
+    }
+    nombresCarril.set(clave, c.id);
+  }
+  for (const id of tocadas.carriles) {
+    const c = carriles.get(id)!;
+    if (c.eliminado) continue;
+    const diagrama = actividades.get(c.diagramaId);
+    if (!diagrama || diagrama.eliminado) {
+      conflictos.push({ tipo: "CARRIL", id, nombre: c.nombre, motivo: "El diagrama del carril ya no existe" });
+    } else if (esNodoDeControl(diagrama.tipo)) {
+      invalidos.push({ tipo: "CARRIL", id, nombre: c.nombre, motivo: "Un nodo de control no tiene diagrama interno" });
+    }
+  }
+
   if (conflictos.length > 0) return { ok: false, motivo: "CONFLICTO", elementos: conflictos };
   if (invalidos.length > 0) return { ok: false, motivo: "INVALIDO", elementos: invalidos };
 
@@ -499,6 +582,13 @@ export function aplicarCambios(
     if (previa ? igualesConexion(previa, c) : c.eliminado) continue;
     conexionesNuevas.push({ ...c, numeroVersion: (previa?.numeroVersion ?? 0) + 1 });
   }
+  const carrilesNuevos: Carril[] = [];
+  for (const id of tocadas.carriles) {
+    const c = carriles.get(id)!;
+    const previo = carrilesActuales.get(id);
+    if (previo ? igualesCarril(previo, c) : c.eliminado) continue;
+    carrilesNuevos.push({ ...c, numeroVersion: (previo?.numeroVersion ?? 0) + 1 });
+  }
 
   // Un elemento creado en el borrador que no llega a escribirse (por ejemplo, una
   // actividad nueva eliminada antes de confirmar) no puede quedar referenciado.
@@ -513,5 +603,21 @@ export function aplicarCambios(
     }
   }
 
-  return { ok: true, historias: historiasNuevas, actividades: actividadesNuevas, conexiones: conexionesNuevas };
+  for (const c of carrilesNuevos) {
+    if (!actividadesActuales.has(c.diagramaId) && !escritas.has(c.diagramaId)) {
+      return {
+        ok: false,
+        motivo: "INVALIDO",
+        elementos: [{ tipo: "CARRIL", id: c.id, nombre: c.nombre, motivo: "El diagrama del carril no existe" }],
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    historias: historiasNuevas,
+    actividades: actividadesNuevas,
+    conexiones: conexionesNuevas,
+    carriles: carrilesNuevos,
+  };
 }

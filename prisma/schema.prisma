@@ -63,6 +63,7 @@ model Usuario {
   historiaVersiones  HistoriaUsuarioVersion[]
   actividadVersiones ActividadVersion[]
   conexionVersiones  ConexionActividadVersion[]
+  carrilVersiones    CarrilVersion[]
 }
 
 model Proyecto {
@@ -86,6 +87,7 @@ model Proyecto {
   historias   HistoriaUsuario[]
   actividades Actividad[]
   conexiones  ConexionActividad[]
+  carriles    Carril[]
   versiones   VersionProyecto[]
   entregables Entregable[]
 
@@ -200,6 +202,7 @@ model Actividad {
   revisionesHijas   ActividadVersion[]         @relation("ActividadPadre")
   conexionesOrigen  ConexionActividadVersion[] @relation("ConexionOrigen")
   conexionesDestino ConexionActividadVersion[] @relation("ConexionDestino")
+  carriles          CarrilVersion[]
 
   @@index([proyectoId])
 }
@@ -293,6 +296,48 @@ model ConexionActividadVersion {
   @@index([autorId])
 }
 
+// H17: un carril es una franja vertical con nombre en el lienzo de un diagrama. Es
+// solo visual: guarda su posicion X y su ancho, y no registra que nodos quedan
+// dentro. El diagrama (la actividad cuyo lienzo divide) no cambia entre revisiones;
+// el nombre unico por diagrama se valida en lib/documentacion.ts sobre los vigentes.
+model Carril {
+  id String @id @default(cuid())
+
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  revisiones CarrilVersion[]
+
+  @@index([proyectoId])
+}
+
+model CarrilVersion {
+  id            String   @id @default(cuid())
+  numeroVersion Int
+  eliminado     Boolean  @default(false)
+  nombre        String
+  posicionX     Float
+  ancho         Float
+  creadoEn      DateTime @default(now())
+
+  carrilId String
+  carril   Carril @relation(fields: [carrilId], references: [id], onDelete: Cascade)
+
+  diagramaId String
+  diagrama   Actividad @relation(fields: [diagramaId], references: [id], onDelete: NoAction)
+
+  versionProyectoId String
+  versionProyecto   VersionProyecto @relation(fields: [versionProyectoId], references: [id], onDelete: NoAction)
+
+  autorId String
+  autor   Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  @@unique([carrilId, numeroVersion])
+  @@index([diagramaId])
+  @@index([versionProyectoId])
+  @@index([autorId])
+}
+
 // Un build del proyecto (antes "Checkpoint"). Nace EN_DESARROLLO (sin numero, es
 // donde se trabaja) y se "cierra" asignandole Version.Build.Patch. "orden" es el
 // numero correlativo del build dentro del proyecto (1, 2, 3...): ordena los builds
@@ -329,6 +374,7 @@ model VersionProyecto {
   historiaRevisiones  HistoriaUsuarioVersion[]
   actividadRevisiones ActividadVersion[]
   conexionRevisiones  ConexionActividadVersion[]
+  carrilRevisiones    CarrilVersion[]
 
   @@unique([proyectoId, orden])
   @@unique([proyectoId, numeroVersion, numeroBuild, numeroPatch])

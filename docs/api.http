@@ -202,6 +202,26 @@ Cookie: {{sesion}}
 GET {{baseUrl}}/api/proyectos/{{proyectoId}}/cambios?desde=ayer
 Cookie: {{sesion}}
 
+# ---------- Carriles (H17) ----------
+
+### POST cambios — 200 un carril en un diagrama (solo visual: nombre, posición X y ancho)
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cambios
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "historias": [], "actividades": [], "conexiones": [], "carriles": [{ "id": "nuevo-c1", "base": null, "eliminado": false, "diagramaId": "PEGAR_ID_DIAGRAMA", "nombre": "Ventas", "posicionX": 0, "ancho": 320 }] }
+
+### POST cambios — 400 carril más angosto que el mínimo (120)
+POST {{baseUrl}}/api/proyectos/{{proyectoId}}/cambios
+Cookie: {{sesion}}
+Content-Type: application/json
+
+{ "historias": [], "actividades": [], "conexiones": [], "carriles": [{ "id": "nuevo-c2", "base": null, "eliminado": false, "diagramaId": "PEGAR_ID_DIAGRAMA", "nombre": "Angosto", "posicionX": 0, "ancho": 80 }] }
+
+### GET historial de un carril — 200
+GET {{baseUrl}}/api/proyectos/{{proyectoId}}/carriles/PEGAR_ID_CARRIL/revisiones
+Cookie: {{sesion}}
+
 # ---------- GET .../historias/:historiaId/revisiones y .../actividades/:actividadId/revisiones ----------
 
 ### 200 feliz (historial de una historia)

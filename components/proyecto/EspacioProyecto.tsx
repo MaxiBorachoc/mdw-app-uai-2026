@@ -2,7 +2,7 @@
 
 /**
  * El espacio de trabajo de un proyecto (docs/spec.md, sección 5): barra lateral
- * con los elementos (H11), panel con el elegido (H3 a H7, H10), selector de
+ * con los elementos (H11), panel con el elegido (H3 a H7, H10, H16, H17), selector de
  * versión y cierre (H8, H9) y el borrador con "Confirmar cambios" (H12).
  *
  * Es "use client" porque el borrador vive en el navegador. Los datos confirmados
@@ -30,14 +30,17 @@ import {
   cambiarPadre,
   cambiosParaConfirmar,
   crearActividad,
+  crearCarril,
   crearBorrador,
   crearConexion,
   crearHistoria,
   editarActividad,
+  editarCarril,
   editarGuarda,
   editarHistoria,
   elementosModificados,
   eliminarActividad,
+  eliminarCarril,
   eliminarConexion,
   eliminarHistoria,
   flechasDeActividad,
@@ -51,6 +54,7 @@ import {
   ancestros,
   esNodoDeControl,
   motivoFlechaNoPermitida,
+  nombreCarrilLibre,
   nombreNodo,
   PREFIJO_NUEVO,
   puedeMoverA,
@@ -59,6 +63,7 @@ import {
   type HistoriaContenido,
 } from "@/lib/documentacion";
 import { contenidoActividadSchema } from "@/lib/schemas/actividad";
+import { carrilEnBorradorSchema } from "@/lib/schemas/carril";
 import { contenidoHistoriaSchema } from "@/lib/schemas/historiaUsuario";
 import type { EntregableVista } from "@/lib/schemas/entregable";
 import type { DefinicionProyecto } from "@/lib/schemas/proyecto";
@@ -69,10 +74,12 @@ const CONSULTA_CADA_MS = 5_000;
 // Margen al consultar cambios de otros: una confirmación larga puede quedar con una
 // fecha anterior a la última consulta. Lo repetido se descarta por elemento+versión.
 const SOLAPAMIENTO_MS = 30_000;
+// H17: el ancho con el que nace un carril (después se cambia arrastrando sus bordes).
+const ANCHO_CARRIL_NUEVO = 320;
 
 type Mensaje = { variante: "info" | "warning" | "error"; titulo: string; lineas: string[]; actualizar?: boolean };
 
-const tipoTexto: Record<ElementoConProblema["tipo"], string> = { HISTORIA: "Historia", ACTIVIDAD: "Actividad", CONEXION: "Flecha" };
+const tipoTexto: Record<ElementoConProblema["tipo"], string> = { HISTORIA: "Historia", ACTIVIDAD: "Actividad", CONEXION: "Flecha", CARRIL: "Carril" };
 
 export function EspacioProyecto({
   proyecto,
@@ -112,6 +119,8 @@ export function EspacioProyecto({
   const [borrador, setBorrador] = useState<Borrador>(() => crearBorrador(estado));
   const [seleccion, setSeleccion] = useState<Seleccion>({ tipo: "proyecto" });
   const [nodoElegido, setNodoElegido] = useState<string | null>(null);
+  // H17: en el lienzo se elige un nodo o un carril, no los dos.
+  const [carrilElegido, setCarrilElegido] = useState<string | null>(null);
   const [mostrarErrores, setMostrarErrores] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [mensaje, setMensaje] = useState<Mensaje | null>(null);
@@ -235,6 +244,7 @@ export function EspacioProyecto({
   const historiaElegida = seleccion.tipo === "historia" ? v.historias.find((h) => h.id === seleccion.id) : undefined;
   const actividadAbierta = seleccion.tipo === "actividad" ? v.actividades.find((a) => a.id === seleccion.id) : undefined;
   const nodo = nodoElegido ? v.actividades.find((a) => a.id === nodoElegido && a.padreId === actividadAbierta?.id) : undefined;
+  const carril = carrilElegido ? v.carriles.find((c) => c.id === carrilElegido && c.diagramaId === actividadAbierta?.id) : undefined;
 
   // --- Gestos del borrador -----------------------------------------------------------
   const modificar = (cambio: (b: Borrador) => Borrador) => setBorrador((b) => cambio(b));
@@ -303,6 +313,33 @@ export function EspacioProyecto({
     setSeleccion({ tipo: "proyecto" });
   };
 
+  const elegirNodo = (id: string | null) => {
+    setNodoElegido(id);
+    if (id) setCarrilElegido(null);
+  };
+  const elegirCarril = (id: string | null) => {
+    setCarrilElegido(id);
+    if (id) setNodoElegido(null);
+  };
+
+  // H17: el carril nuevo va pegado a la derecha del que está más a la derecha.
+  const nuevoCarril = (diagramaId: string) => {
+    const delDiagrama = v.carriles.filter((c) => c.diagramaId === diagramaId);
+    const posicionX = delDiagrama.reduce((maximo, c) => Math.max(maximo, c.posicionX + c.ancho), 0);
+    const id = idNuevo();
+    const nombre = nombreCarrilLibre(delDiagrama.map((c) => c.nombre));
+    modificar((b) => crearCarril(b, id, { diagramaId, nombre, posicionX, ancho: ANCHO_CARRIL_NUEVO }));
+    elegirCarril(id);
+  };
+
+  const eliminarUnCarril = (id: string) => {
+    const elegido = v.carriles.find((c) => c.id === id);
+    if (!elegido) return;
+    if (!window.confirm(`¿Eliminar el carril “${elegido.nombre}”? Los nodos que se ven sobre él no cambian. Se va a poder ver en las versiones cerradas anteriores.`)) return;
+    modificar((b) => eliminarCarril(b, id));
+    setCarrilElegido(null);
+  };
+
   const conectar = (origenId: string, destinoId: string) => {
     // H16: las reglas de UML que se validan (el servidor las vuelve a controlar).
     const origen = v.actividades.find((a) => a.id === origenId);
@@ -326,6 +363,14 @@ export function EspacioProyecto({
   const seleccionar = (e: { tipo: ElementoConProblema["tipo"]; id: string }) => {
     if (e.tipo === "HISTORIA") setSeleccion({ tipo: "historia", id: e.id });
     else if (e.tipo === "ACTIVIDAD") irAActividad(e.id);
+    else if (e.tipo === "CARRIL") {
+      // H17: se abre el diagrama del carril con el carril elegido.
+      const elegido = borrador.actual.carriles.find((c) => c.id === e.id);
+      if (elegido) {
+        setSeleccion({ tipo: "actividad", id: elegido.diagramaId });
+        elegirCarril(e.id);
+      }
+    }
   };
 
   const confirmar = async () => {
@@ -344,6 +389,12 @@ export function EspacioProyecto({
         .flatMap((a) => {
           const r = contenidoActividadSchema.safeParse(a);
           return r.success ? [] : [{ tipo: "ACTIVIDAD" as const, id: a.id, nombre: a.nombre || "Sin nombre", motivo: r.error.issues[0]?.message ?? "" }];
+        }),
+      ...cambios.carriles
+        .filter((c) => !c.eliminado)
+        .flatMap((c) => {
+          const r = carrilEnBorradorSchema.safeParse(c);
+          return r.success ? [] : [{ tipo: "CARRIL" as const, id: c.id, nombre: c.nombre || "Carril sin nombre", motivo: r.error.issues[0]?.message ?? "" }];
         }),
     ];
     if (problemas.length > 0) {
@@ -558,17 +609,25 @@ export function EspacioProyecto({
         onCambiar={(id, cambio) => modificar((b) => editarActividad(b, id, cambio))}
         onCambiarPadre={cambiarDePadre}
         onEliminar={eliminarUnaActividad}
-        onSeleccionarNodo={setNodoElegido}
+        onSeleccionarNodo={elegirNodo}
         onMoverNodo={(id, x, y) => modificar((b) => editarActividad(b, id, { posicionX: x, posicionY: y }))}
         onCrearNodo={(x, y, tipo) => {
           const id = idNuevo();
           const nombre = tipo === "ACTIVIDAD" ? "Nueva actividad" : "";
           modificar((b) => crearActividad(b, id, { tipo, nombre, padreId: actividadAbierta.id, posicionX: x, posicionY: y }));
-          setNodoElegido(id);
+          elegirNodo(id);
         }}
         onCambiarGuarda={(id, guarda) => modificar((b) => editarGuarda(b, id, guarda))}
         onConectar={conectar}
         onEliminarFlecha={(id) => modificar((b) => eliminarConexion(b, id))}
+        carriles={v.carriles
+          .filter((c) => c.diagramaId === actividadAbierta.id)
+          .map((c) => ({ id: c.id, nombre: c.nombre, x: c.posicionX, ancho: c.ancho }))}
+        carrilElegido={carril ? { carril, nuevo: carril.id.startsWith(PREFIJO_NUEVO) } : null}
+        onSeleccionarCarril={elegirCarril}
+        onCrearCarril={() => nuevoCarril(actividadAbierta.id)}
+        onCambiarCarril={(id, cambio) => modificar((b) => editarCarril(b, id, cambio))}
+        onEliminarCarril={eliminarUnCarril}
       />
     );
   } else {
@@ -721,5 +780,7 @@ function nombreEn(estado: Estado, id: string): string {
   if (historia) return historia.titulo || "Historia sin título";
   const actividad = estado.actividades.find((a) => a.id === id);
   if (actividad) return nombreNodo(actividad) || "Sin nombre";
+  const carril = estado.carriles.find((c) => c.id === id);
+  if (carril) return carril.nombre || "Carril sin nombre";
   return "(elemento eliminado)";
 }

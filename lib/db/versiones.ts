@@ -246,10 +246,11 @@ async function listarVersionesCerradas(proyectoId: string, db: Prisma.Transactio
 
 // H8: un build tiene cambios si se confirmo alguna revision de cualquier elemento en el.
 async function contarRevisionesDelBuild(versionProyectoId: string, db: Prisma.TransactionClient) {
-  const [historias, actividades, conexiones] = await Promise.all([
+  const [historias, actividades, conexiones, carriles] = await Promise.all([
     db.historiaUsuarioVersion.count({ where: { versionProyectoId } }),
     db.actividadVersion.count({ where: { versionProyectoId } }),
     db.conexionActividadVersion.count({ where: { versionProyectoId } }),
+    db.carrilVersion.count({ where: { versionProyectoId } }),
   ]);
-  return historias + actividades + conexiones;
+  return historias + actividades + conexiones + carriles;
 }

@@ -2,8 +2,8 @@
 
 /**
  * H12: los cambios que confirmaron otros usuarios mientras este tenía un
- * borrador, agrupados por usuario. Un cambio en una flecha se informa como un
- * cambio en la actividad cuyo diagrama la contiene.
+ * borrador, agrupados por usuario. Un cambio en una flecha o en un carril se informa
+ * como un cambio en la actividad cuyo diagrama lo contiene.
  */
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 
 export type CambioDeOtroVista = {
-  tipo: "HISTORIA" | "ACTIVIDAD" | "CONEXION";
+  tipo: "HISTORIA" | "ACTIVIDAD" | "CONEXION" | "CARRIL";
   elementoId: string;
   numeroVersion: number;
   nombre: string;
@@ -20,7 +20,7 @@ export type CambioDeOtroVista = {
 };
 
 const verbo = { CREO: "Se creó", MODIFICO: "Se modificó", ELIMINO: "Se eliminó" } as const;
-const tipoTexto = { HISTORIA: "Historia", ACTIVIDAD: "Actividad", CONEXION: "Actividad" } as const;
+const tipoTexto = { HISTORIA: "Historia", ACTIVIDAD: "Actividad", CONEXION: "Actividad", CARRIL: "Actividad" } as const;
 
 export function DialogoCambiosDeOtros({
   abierto,
@@ -39,8 +39,9 @@ export function DialogoCambiosDeOtros({
   const porAutor = new Map<string, { nombre: string; lineas: Map<string, { texto: string; conflicto: boolean }> }>();
   for (const c of cambios) {
     const grupo = porAutor.get(c.autor.id) ?? { nombre: c.autor.nombre, lineas: new Map() };
-    // Una flecha cuenta como "se modificó la actividad que la contiene" (con su nombre).
-    const accion = c.tipo === "CONEXION" ? "MODIFICO" : c.accion;
+    // Una flecha o un carril cuenta como "se modificó la actividad cuyo diagrama lo
+    // contiene" (con su nombre).
+    const accion = c.tipo === "CONEXION" || c.tipo === "CARRIL" ? "MODIFICO" : c.accion;
     const texto = `${verbo[accion]} ${tipoTexto[c.tipo]} ${c.nombre}`;
     const previa = grupo.lineas.get(texto);
     grupo.lineas.set(texto, { texto, conflicto: (previa?.conflicto ?? false) || conflictos.has(c.elementoId) });

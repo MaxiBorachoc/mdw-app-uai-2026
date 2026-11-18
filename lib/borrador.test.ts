@@ -25,6 +25,7 @@ const confirmado = (): Estado => ({
     { id: "C", numeroVersion: 1, eliminado: false, tipo: "ACTIVIDAD", nombre: "C", documentacion: "", padreId: "A", posicionX: 0, posicionY: 0, historiaIds: [] },
   ],
   conexiones: [{ id: "f1", numeroVersion: 1, eliminado: false, origenId: "A", destinoId: "B", guarda: "" }],
+  carriles: [],
 });
 
 describe("borrador (H12)", () => {

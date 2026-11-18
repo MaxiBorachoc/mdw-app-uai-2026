@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * H4 / H6: el historial de un elemento. Se pide a la API recién cuando el
+ * H4 / H6 / H17: el historial de un elemento. Se pide a la API recién cuando el
  * usuario lo abre; cada revisión se ve en modo lectura, sin tocar la vigente.
  */
 import { useState } from "react";
@@ -26,6 +26,8 @@ type RevisionActividad = RevisionBase & {
   posicionY: number | null;
   historiaIds: string[];
 };
+// H17: la posición y el ancho de un carril se muestran como datos de la revisión.
+type RevisionCarril = RevisionBase & { nombre: string; diagramaId: string; posicionX: number; ancho: number };
 
 const formatoFecha = new Intl.DateTimeFormat("es-AR", {
   dateStyle: "medium",
@@ -40,18 +42,18 @@ export function HistorialRevisiones({
   nombreDe,
 }: {
   proyectoId: string;
-  tipo: "historia" | "actividad";
+  tipo: "historia" | "actividad" | "carril";
   elementoId: string;
   // Para mostrar nombres en vez de ids (padre, historias asociadas).
   nombreDe: (id: string) => string;
 }) {
   const [estado, setEstado] = useState<"cerrado" | "cargando" | "error" | "listo">("cerrado");
-  const [revisiones, setRevisiones] = useState<(RevisionHistoria | RevisionActividad)[]>([]);
+  const [revisiones, setRevisiones] = useState<(RevisionHistoria | RevisionActividad | RevisionCarril)[]>([]);
 
   const cargar = async () => {
     setEstado("cargando");
     try {
-      const ruta = tipo === "historia" ? "historias" : "actividades";
+      const ruta = { historia: "historias", actividad: "actividades", carril: "carriles" }[tipo];
       const respuesta = await fetch(`/api/proyectos/${proyectoId}/${ruta}/${elementoId}/revisiones`);
       if (!respuesta.ok) throw new Error(String(respuesta.status));
       setRevisiones(await respuesta.json());
@@ -126,6 +128,19 @@ export function HistorialRevisiones({
                               <li key={i}>{c}</li>
                             ))}
                           </ul>
+                        </dd>
+                      </div>
+                    </>
+                  ) : "ancho" in r ? (
+                    <>
+                      <div>
+                        <dt className="font-medium text-muted-foreground">Nombre</dt>
+                        <dd>{r.nombre}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-muted-foreground">Posición y ancho en el lienzo</dt>
+                        <dd>
+                          Desde x = {r.posicionX}, {r.ancho} de ancho
                         </dd>
                       </div>
                     </>
