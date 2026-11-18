@@ -180,7 +180,7 @@ se muestra ni se comunica por mail.
 | Descripción de proyecto | 500 caracteres |
 | Título de historia | 150 caracteres |
 | Descripción de historia | 2000 caracteres |
-| Cada criterio de aceptación | 300 caracteres |
+| Cada criterio de aceptación | 1000 caracteres |
 | Nombre de actividad | 100 caracteres |
 | Guarda de una flecha | 100 caracteres |
 | Nombre de carril | 100 caracteres |
@@ -212,19 +212,25 @@ eliminados). Estas reglas aplican cuando se borra un registro de la base:
 ## 4. Historias de usuario
 
 Formato: **Como** <rol>, **quiero** <accion>, **para** <beneficio>.
-Cada historia lleva su criterio de aceptacion: como se verifica que esta terminada.
+Cada historia lleva sus criterios de aceptacion: como se verifica que esta terminada. Cada criterio
+describe una sola regla o comportamiento.
+
+Las historias se agrupan por funcionalidad: **H*n*** es el grupo y **H*n*.*m*** cada historia. Una
+referencia a un grupo (por ejemplo, "ver H12") abarca todas sus historias.
 
 > **Todas las historias asumen que el usuario inicio sesion y pertenece al proyecto indicado**,
 > salvo que se indique lo contrario.
 
-### H1 - Crear un proyecto
+### H1 - Proyectos
+
+#### H1.1 - Crear un proyecto
 
 **Como** dueño, **quiero** crear un proyecto, **para** tener un espacio donde centralizar la
 documentacion del equipo.
 
 Criterios de aceptacion:
-- [ ] Cuando el usuario carga nombre y descripcion del proyecto, entonces el proyecto queda creado
-      y el usuario queda asociado como dueño.
+- [ ] Cuando el usuario carga nombre y descripcion del proyecto, entonces el proyecto queda creado.
+- [ ] Quien crea el proyecto queda asociado como su dueño.
 - [ ] Dado que el dueño entra a su listado de proyectos, cuando se muestra la pantalla, entonces ve
       el proyecto creado.
 - [ ] Los nombres de proyecto pueden repetirse entre proyectos distintos: no hace falta que sean
@@ -232,87 +238,133 @@ Criterios de aceptacion:
 - [ ] Caso de error: si el nombre esta vacio, no se guarda y se muestra el motivo.
 - [ ] Caso de error: si el nombre o la descripcion superan la longitud maxima (ver seccion 3), no se
       guarda y se muestra el motivo.
+
+#### H1.2 - Editar los datos del proyecto
+
+**Como** dueño, **quiero** corregir el nombre y la descripcion del proyecto, **para** mantenerlos al
+dia.
+
+Criterios de aceptacion:
 - [ ] Cuando el dueño edita nombre o descripcion del proyecto, entonces los cambios quedan guardados.
-      Ningun otro rol puede editarlos.
+- [ ] Ningun otro rol puede editar el nombre ni la descripcion.
 - [ ] Caso de error: si quien intenta editar el proyecto no es su dueño, el sistema rechaza la accion
       aunque la llamada no venga de la interfaz.
-- [ ] Cuando el dueño elimina el proyecto, entonces el sistema le advierte que se va a perder toda la
-      documentacion (incluidas las versiones cerradas, ver regla de borrado en la seccion 3) y le pide
-      confirmar la eliminacion una segunda vez antes de ejecutarla. Ningun otro rol puede eliminarlo.
-      Al eliminarlo, los colaboradores del proyecto reciben un correo electronico avisandoles (ver
+
+#### H1.3 - Eliminar un proyecto
+
+**Como** dueño, **quiero** eliminar un proyecto que ya no se usa, **para** que deje de ocupar lugar en
+el listado del equipo.
+
+Criterios de aceptacion:
+- [ ] Cuando el dueño elimina el proyecto, el sistema le advierte que se va a perder toda la
+      documentacion, incluidas las versiones cerradas (ver regla de borrado en la seccion 3).
+- [ ] El sistema pide confirmar la eliminacion una segunda vez antes de ejecutarla.
+- [ ] Al eliminarlo, los colaboradores del proyecto reciben un correo electronico avisandoles (ver
       seccion 8).
+- [ ] Ningun otro rol puede eliminar el proyecto.
 - [ ] Caso de error: si quien intenta eliminar el proyecto no es su dueño, el sistema rechaza la
       accion aunque la llamada no venga de la interfaz.
 
-### H2 - Administrar colaboradores del proyecto
-
-**Como** dueño, **quiero** invitar colaboradores y asignarles un rol, **para** controlar quien puede
-editar o solo consultar la documentacion.
+### H2 - Colaboradores del proyecto
 
 > En la interfaz, la seccion **"Colaboradores"** de la informacion del proyecto tiene un boton que
-> abre una ventana emergente. Arriba hay un cuadro de texto donde el dueño escribe el email de un usuario, y al lado
-> elige el rol con el que lo invita (**Editor** o **Lector**); con cada `Enter` lo agrega a la lista
-> de abajo. Desde esa lista puede cambiar el rol de los que ya aceptaron (el de una invitacion
-> pendiente no cambia: el correo ya salio con ese rol; para corregirlo, la quita y vuelve a invitar).
-> Cada proyecto tiene su propia lista de colaboradores, con su estado de invitacion (pendiente,
-> aceptada o rechazada). El resto de los colaboradores abre la misma ventana y ve la lista en solo
-> lectura. En la pantalla de inicio cada usuario ve los proyectos en los que participa.
+> abre una ventana emergente. Arriba hay un cuadro de texto donde el dueño escribe el email de un
+> usuario, y al lado elige el rol con el que lo invita (**Editor** o **Lector**); con cada `Enter` lo
+> agrega a la lista de abajo. Cada proyecto tiene su propia lista de colaboradores, con su estado de
+> invitacion (pendiente, aceptada o rechazada).
+>
+> El circuito de invitacion por correo (enviarla, que el usuario invitado la acepte o la rechace
+> desde ahi, y que el dueño pueda re-invitar a quien rechazo) se implemento en la clase 7. Ver
+> `lib/servicios/mail.ts` y los endpoints `.../aceptar` y `.../rechazar` en `docs/api.md`.
 
-> **Estado actual vs. objetivo.** El modelo de estados (pendiente / aceptada / rechazada) y todo lo
-> que depende de un correo de por medio -enviar la invitacion, que el usuario la acepte o la
-> rechace desde ahi, re-invitar, el aviso al dueño- queda especificado aca para cuando se integre el
-> servicio de mail (clase 7). Hasta entonces, agregar un colaborador lo deja directamente en estado
-> **aceptada** (se presume aceptada, sin pasar por pendiente ni por un correo).
+#### H2.1 - Invitar a un colaborador
+
+**Como** dueño, **quiero** invitar a un usuario con un rol, **para** controlar quien puede editar o
+solo consultar la documentacion.
 
 Criterios de aceptacion:
 - [ ] Cuando el dueño ingresa el email de un usuario existente y le asigna rol editor o lector,
       entonces se crea una invitacion con ese rol y aparece en la lista de colaboradores del dueño.
-      *(Objetivo, clase 7):* queda en estado **pendiente** y el usuario invitado recibe un correo
-      electronico con la invitacion (ver seccion 8). *(Hoy):* queda directamente en estado
-      **aceptada**, sin enviar ningun correo.
+- [ ] La invitacion nueva queda en estado **pendiente**.
+- [ ] El usuario invitado recibe un correo electronico con la invitacion (ver seccion 8).
 - [ ] Mientras la invitacion este pendiente, el usuario invitado no tiene acceso al proyecto (no
-      cuenta como colaborador a los efectos de los permisos). *(No aplica hoy: no hay estado
-      pendiente todavia, ver mas arriba.)*
-- [ ] *(Objetivo, clase 7)* Cuando el usuario invitado acepta la invitacion desde el correo, entonces
-      su estado pasa a **aceptada** y a partir de ese momento tiene acceso al proyecto con el rol
-      asignado.
-- [ ] *(Objetivo, clase 7)* Cuando el usuario invitado rechaza la invitacion desde el correo,
-      entonces su estado pasa a **rechazada** y no tiene acceso al proyecto. No se le avisa al dueño
-      de este rechazo (a definir si hace falta un aviso, ver TODO mas abajo).
-- [ ] En la lista de colaboradores, los que estan en estado **aceptada** son visibles para
-      cualquier colaborador del proyecto (cualquier rol). Los que estan en estado **pendiente** o
-      **rechazada** solo son visibles para el dueño.
-- [ ] Cuando el dueño cambia el rol de un colaborador con invitacion aceptada entre editor y lector,
-      entonces el cambio queda guardado. No se envia correo por este cambio.
-- [ ] Cuando el dueño quita a un colaborador de la lista (con invitacion aceptada, pendiente o
-      rechazada), entonces pierde -o no llega a tener- acceso al proyecto, y recibe un correo
-      electronico de despedida (ver seccion 8).
+      cuenta como colaborador a los efectos de los permisos).
 - [ ] Dado que un colaborador tiene rol lector, cuando intenta crear o modificar documentacion,
       entonces el sistema rechaza la accion.
-- [ ] Dado que un usuario es colaborador (con invitacion aceptada) de un proyecto ajeno, entonces ve
-      un boton **"No colaborar"** dentro del cuadro de ese proyecto, a la derecha; no lo ve en sus
-      propios proyectos ni en los que no es colaborador. Cuando lo usa, deja de ser colaborador,
-      pierde el acceso al proyecto y el dueño recibe un correo electronico avisando que dejo de
-      colaborar (ver seccion 8).
+- [ ] El dueño puede volver a invitar a un usuario cuya invitacion anterior esta en estado
+      **rechazada**: se comporta como una invitacion nueva (vuelve a pendiente y se reenvia el correo).
 - [ ] Caso de error: si el email ingresado no corresponde a ningun usuario, no se agrega y se marca
-      la caja en rojo con el mensaje "Se ingresó un usuario inexistente"; el dueño es notificado de
-      que el usuario que quiere invitar no existe.
+      la caja en rojo con el mensaje "Se ingresó un usuario inexistente": el dueño es notificado de que
+      el usuario que quiere invitar no existe.
 - [ ] Caso de error: si el dueño ingresa su propio email, no se agrega: el dueño ya es titular del
       proyecto y no puede figurar como invitado.
 - [ ] Caso de error: si el dueño ingresa dos o mas veces el mismo usuario, no se agrega de nuevo a la
       lista.
-- [ ] Caso de error: si quien intenta invitar, quitar o cambiar roles no es el dueño, el sistema
-      responde 403 aunque la llamada no venga de la interfaz.
-- [ ] *(Objetivo, clase 7)* El dueño puede volver a invitar a un usuario cuya invitacion anterior
-      esta en estado **rechazada**: se comporta como una invitacion nueva (vuelve a **pendiente**,
-      se reenvia el correo).
+- [ ] Caso de error: si quien intenta invitar no es el dueño, el sistema responde 403 aunque la
+      llamada no venga de la interfaz.
+
+#### H2.2 - Responder una invitacion
+
+**Como** usuario invitado, **quiero** aceptar o rechazar una invitacion desde el correo, **para**
+decidir si participo del proyecto.
+
+Criterios de aceptacion:
+- [ ] Cuando el usuario invitado acepta la invitacion desde el correo, su estado pasa a **aceptada**.
+- [ ] Con la invitacion aceptada, el usuario tiene acceso al proyecto con el rol asignado.
+- [ ] Cuando el usuario invitado rechaza la invitacion desde el correo, su estado pasa a
+      **rechazada** y no tiene acceso al proyecto.
+- [ ] No se le avisa al dueño cuando un usuario rechaza su invitacion.
+
+#### H2.3 - Ver los colaboradores
+
+**Como** colaborador, **quiero** ver quienes participan del proyecto y con que rol, **para** saber con
+quien estoy trabajando.
+
+Criterios de aceptacion:
+- [ ] Cualquier colaborador abre la misma ventana de colaboradores; si no es el dueño, la ve en solo
+      lectura.
+- [ ] Los colaboradores en estado **aceptada** son visibles para cualquier colaborador del proyecto.
+- [ ] Los colaboradores en estado **pendiente** o **rechazada** solo son visibles para el dueño.
+- [ ] En la pantalla de inicio cada usuario ve los proyectos en los que participa.
+
+#### H2.4 - Cambiar el rol de un colaborador
+
+**Como** dueño, **quiero** cambiar el rol de un colaborador, **para** darle o quitarle permiso de
+edicion.
+
+Criterios de aceptacion:
+- [ ] Cuando el dueño cambia el rol de un colaborador con invitacion aceptada entre editor y lector,
+      el cambio queda guardado.
+- [ ] No se envia correo por un cambio de rol.
+- [ ] El rol de una invitacion pendiente no se cambia (el correo ya salio con ese rol): para
+      corregirlo, el dueño la quita y vuelve a invitar.
+- [ ] Caso de error: si quien intenta cambiar un rol no es el dueño, el sistema responde 403 aunque la
+      llamada no venga de la interfaz.
+
+#### H2.5 - Quitar a un colaborador
+
+**Como** dueño, **quiero** quitar a un colaborador del proyecto, **para** que deje de tener acceso.
+
+Criterios de aceptacion:
+- [ ] Cuando el dueño quita a un colaborador de la lista (con invitacion aceptada, pendiente o
+      rechazada), el colaborador pierde -o no llega a tener- acceso al proyecto.
+- [ ] El colaborador quitado recibe un correo electronico de despedida (ver seccion 8).
+- [ ] Caso de error: si quien intenta quitar a un colaborador no es el dueño, el sistema responde 403
+      aunque la llamada no venga de la interfaz.
+
+#### H2.6 - Dejar de colaborar en un proyecto
+
+**Como** colaborador de un proyecto ajeno, **quiero** dejar de colaborar, **para** que el proyecto no
+siga apareciendo entre los mios.
+
+Criterios de aceptacion:
+- [ ] Dado que un usuario es colaborador (con invitacion aceptada) de un proyecto ajeno, ve un boton
+      **"No colaborar"** dentro del cuadro de ese proyecto, a la derecha.
+- [ ] El boton no aparece en los proyectos propios ni en los que el usuario no es colaborador.
+- [ ] Cuando lo usa, deja de ser colaborador y pierde el acceso al proyecto.
+- [ ] El dueño recibe un correo electronico avisando que el usuario dejo de colaborar (ver seccion 8).
 
 > No hay un maximo de colaboradores por proyecto.
->
-> **Implementado en la clase 7:** el circuito completo de invitacion por correo (enviarla, que el
-> usuario invitado la acepte o la rechace desde ahi, y que el dueño pueda re-invitar a quien
-> rechazo). Ver `lib/servicios/mail.ts` y los endpoints `.../aceptar` y `.../rechazar` en
-> `docs/api.md`.
 >
 > **Mejoras futuras, no pedidas por ninguna clase y no implementadas:** un limite contra el spam de
 > invitaciones repetidas (cuantas veces o cada cuanto se puede re-invitar al mismo usuario), y avisarle
@@ -322,7 +374,9 @@ Criterios de aceptacion:
 > recién se registran al tocar **"Confirmar cambios"** (ver H12). Cuando un criterio dice "se crea",
 > "se guarda" o "se elimina", quiere decir: al confirmar.
 
-### H3 - Registrar una historia de usuario
+### H3 - Registrar historias de usuario
+
+#### H3.1 - Registrar una historia de usuario
 
 **Como** dueño o editor, **quiero** cargar historias de usuario, **para** documentar qué necesita el
 sistema y con qué criterios se valida.
@@ -334,86 +388,175 @@ Criterios de aceptación:
 - [ ] Caso de error: si falta título o descripción, no se puede confirmar y se marcan los campos a
       corregir.
 - [ ] Caso de error: si no hay al menos un criterio de aceptación, no se puede confirmar.
-- [ ] Caso de error: si el título ya existe en otra historia vigente del mismo proyecto (sin distinguir
-      mayúsculas/minúsculas ni espacios al borde, pero sin ignorar acentos ni espacios internos), no
-      se guarda y se muestra el motivo. El título identifica la historia para el equipo.
+- [ ] Caso de error: si el título ya existe en otra historia vigente del mismo proyecto, no se guarda y
+      se muestra el motivo. El título identifica la historia para el equipo.
+- [ ] El título se compara sin distinguir mayúsculas/minúsculas ni espacios al borde, pero sin ignorar
+      acentos ni espacios internos.
 - [ ] Caso de error: si el título, la descripción o algún criterio superan la longitud máxima (ver
       sección 3), no se guarda y se muestra el motivo.
 
-### H4 - Editar, consultar y eliminar una historia sin perder versiones anteriores
+### H4 - Editar, consultar y eliminar historias
 
-**Como** dueño o editor, **quiero** modificar o eliminar una historia de usuario, **para** mantener
-la documentación al día sin perder cómo estaba antes.
+#### H4.1 - Editar una historia
+
+**Como** dueño o editor, **quiero** modificar una historia de usuario, **para** mantener la
+documentación al día sin perder cómo estaba antes.
 
 Criterios de aceptación:
 - [ ] Cuando se confirma un cambio en una historia, el sistema crea una revisión nueva (versión del
       elemento + 1) en el build en desarrollo.
-- [ ] El detalle de la historia muestra sus datos y su **historial**: versión del elemento, build,
-      fecha, autor y contenido de cada revisión. Abrir una revisión anterior la muestra en modo
-      lectura, sin modificar la actual.
-- [ ] El detalle de la historia muestra la **lista de actividades asociadas**: las actividades que la
-      referencian en el build que se está mirando (ver H6). Desde la lista se puede ir a cada una.
-- [ ] Cuando el usuario elimina una historia, el sistema le pide confirmación. Al confirmar, se crea
-      una revisión marcada eliminado: desde ese build la historia no aparece y las actividades que la
-      tenían asociada dejan de mostrarla.
 - [ ] Caso de error: si el nuevo título ya existe en otra historia vigente (misma regla que en H3), no
       se guarda y se muestra el motivo.
 - [ ] Caso de error: si los datos quedan iguales a la revisión vigente, no se crea una revisión nueva.
 - [ ] Caso de error: si algún campo supera la longitud máxima, no se guarda y se muestra el motivo.
 
-### H5 - Crear diagramas de actividades
+#### H4.2 - Consultar el historial de una historia
+
+**Como** colaborador, **quiero** ver las versiones anteriores de una historia, **para** saber cómo
+cambió y quién la cambió.
+
+Criterios de aceptación:
+- [ ] El detalle de la historia muestra sus datos y su **historial**: versión del elemento, build,
+      fecha, autor y contenido de cada revisión.
+- [ ] Abrir una revisión anterior la muestra en modo lectura, sin modificar la actual.
+
+#### H4.3 - Ver las actividades asociadas a una historia
+
+**Como** colaborador, **quiero** ver qué actividades implementan una historia, **para** ir de lo que se
+pide a cómo se resuelve.
+
+Criterios de aceptación:
+- [ ] El detalle de la historia muestra la **lista de actividades asociadas**: las actividades que la
+      referencian en el build que se está mirando (ver H6).
+- [ ] Desde la lista se puede ir a cada actividad.
+
+#### H4.4 - Eliminar una historia
+
+**Como** dueño o editor, **quiero** eliminar una historia que ya no aplica, **para** que deje de
+formar parte de la documentación vigente.
+
+Criterios de aceptación:
+- [ ] Cuando el usuario elimina una historia, el sistema le pide confirmación.
+- [ ] Al confirmar, se crea una revisión marcada eliminado: desde ese build la historia no aparece.
+- [ ] Las actividades que tenían asociada la historia eliminada dejan de mostrarla.
+
+### H5 - Diagramas de actividades
+
+#### H5.1 - Crear un diagrama
 
 **Como** dueño o editor, **quiero** crear todos los diagramas que necesite el proyecto, **para**
 representar cada proceso funcional por separado.
 
 Criterios de aceptación:
 - [ ] Desde la barra lateral, en el acordeón "Diagramas de actividades", el usuario elige el botón **+**
-      ("Nuevo diagrama", ver H11) y carga un
-      nombre. El diagrama es una actividad sin padre: tiene nombre, documentación e historias
-      asociadas como cualquier actividad (ver H6), pero no tiene posición porque no se dibuja en ningún
-      lienzo.
+      ("Nuevo diagrama", ver H11) y carga un nombre.
+- [ ] El diagrama es una actividad sin padre: tiene nombre, documentación e historias asociadas como
+      cualquier actividad (ver H6).
+- [ ] Un diagrama no tiene posición, porque no se dibuja en ningún lienzo.
 - [ ] Un proyecto puede tener cualquier cantidad de diagramas. La barra lateral los lista a todos.
-- [ ] Al abrir un diagrama se ve su lienzo, con las actividades hijas y las flechas entre ellas.
-- [ ] El lienzo no tiene barras de desplazamiento: el usuario desplaza la vista manteniendo apretado el
-      botón principal del mouse sobre el fondo y arrastrando, y la acerca o aleja con la rueda del
-      mouse con el cursor sobre el lienzo (se acerca hacia donde está el cursor). Desplazar o acercar
-      la vista no cambia las posiciones de las actividades ni genera cambios; cada diagrama se abre con
-      la vista inicial.
 - [ ] Caso de error: si el nombre está vacío o supera la longitud máxima, no se guarda y se muestra el
       motivo.
 
-### H6 - Crear, documentar, mover y eliminar actividades
+#### H5.2 - Ver el lienzo de un diagrama
 
-**Como** dueño o editor, **quiero** armar el contenido de un diagrama con actividades, **para**
-describir los pasos de un proceso y conservar cómo estaba en cada build.
+**Como** colaborador, **quiero** abrir un diagrama, **para** ver cómo está modelado el proceso.
+
+Criterios de aceptación:
+- [ ] Al abrir un diagrama se ve su lienzo, con las actividades hijas y las flechas entre ellas.
+
+#### H5.3 - Desplazar y acercar la vista del lienzo
+
+**Como** colaborador, **quiero** mover y acercar la vista de un diagrama, **para** recorrer diagramas
+más grandes que la pantalla.
+
+Criterios de aceptación:
+- [ ] El lienzo no tiene barras de desplazamiento.
+- [ ] El usuario desplaza la vista manteniendo apretado el botón principal del mouse sobre el fondo y
+      arrastrando.
+- [ ] Con el cursor sobre el lienzo, la rueda del mouse acerca o aleja la vista, hacia donde está el
+      cursor.
+- [ ] Desplazar o acercar la vista no cambia las posiciones de las actividades ni genera cambios.
+- [ ] Cada diagrama se abre con la vista inicial.
+
+### H6 - Actividades
+
+#### H6.1 - Crear una actividad
+
+**Como** dueño o editor, **quiero** agregar actividades a un diagrama, **para** describir los pasos de
+un proceso.
 
 Criterios de aceptación:
 - [ ] Dentro del lienzo de un diagrama, el usuario crea una actividad: aparece como un nodo con su
-      nombre y queda como hija del diagrama abierto.
+      nombre.
+- [ ] La actividad creada queda como hija del diagrama abierto.
+
+#### H6.2 - Documentar una actividad
+
+**Como** dueño o editor, **quiero** ponerle nombre y documentación a una actividad, **para** explicar
+qué ocurre en ese paso.
+
+Criterios de aceptación:
 - [ ] El usuario edita el nombre y la documentación de una actividad.
+- [ ] Caso de error: si el nombre está vacío, no se guarda y se muestra el motivo.
+- [ ] Caso de error: si el nombre o la documentación superan la longitud máxima, no se guarda y se
+      muestra el motivo.
+
+#### H6.3 - Asociar historias a una actividad
+
+**Como** dueño o editor, **quiero** asociar una actividad a las historias de usuario que implementa,
+**para** relacionar lo que se pide con cómo se resuelve.
+
+Criterios de aceptación:
 - [ ] El usuario asocia una actividad (de cualquier nivel, incluido un diagrama) a una o más historias
-      de usuario vigentes del proyecto, y puede quitar asociaciones.
+      de usuario vigentes del proyecto.
+- [ ] El usuario puede quitar asociaciones.
 - [ ] Los datos de la actividad muestran solo las historias asociadas, como etiquetas en orden
-      alfabético; cada una tiene una × para quitar la asociación. Debajo, un buscador lista las
-      historias vigentes que todavía no están asociadas (todas al entrar al campo, o las que contienen
-      el texto escrito, sin distinguir mayúsculas ni tildes); al elegir una, se asocia. Se usa con el
-      mouse o con el teclado (flechas, `Enter` y `Escape`).
+      alfabético.
+- [ ] Cada etiqueta tiene una × para quitar la asociación.
+- [ ] Debajo de las etiquetas, un buscador lista las historias vigentes que todavía no están asociadas:
+      todas al entrar al campo, o las que contienen el texto escrito, sin distinguir mayúsculas ni
+      tildes.
+- [ ] Al elegir una historia del buscador, se asocia.
+- [ ] El buscador se usa con el mouse o con el teclado (flechas, `Enter` y `Escape`).
 - [ ] En solo lectura se ven las etiquetas, sin la × ni el buscador.
-- [ ] El usuario mueve una actividad dentro del lienzo arrastrándola, o con el teclado. Al confirmar,
-      la posición final queda guardada en una revisión nueva: al volver al diagrama, y al mirar ese
-      build más adelante, la actividad está en el mismo lugar. Arrastrarla varias veces antes de
-      confirmar genera una sola revisión.
+
+#### H6.4 - Mover una actividad en el lienzo
+
+**Como** dueño o editor, **quiero** acomodar las actividades en el lienzo, **para** que el diagrama
+se lea bien.
+
+Criterios de aceptación:
+- [ ] El usuario mueve una actividad dentro del lienzo arrastrándola, o con el teclado.
+- [ ] Al confirmar, la posición final queda guardada en una revisión nueva: al volver al diagrama, y al
+      mirar ese build más adelante, la actividad está en el mismo lugar.
+- [ ] Arrastrar una actividad varias veces antes de confirmar genera una sola revisión.
+
+#### H6.5 - Versionar los cambios de una actividad
+
+**Como** colaborador, **quiero** que cada cambio de una actividad quede registrado, **para** poder ver
+cómo estaba antes.
+
+Criterios de aceptación:
 - [ ] Cada cambio confirmado (nombre, documentación, posición, padre o historias asociadas) crea una
-      revisión nueva de la actividad, con el mismo historial que una historia (ver H4).
-- [ ] Cuando el usuario elimina una actividad, el sistema le avisa que también se eliminan sus
-      actividades internas (y las internas de esas, en todos los niveles) y las flechas que tocan a
-      cualquiera de ellas, y le pide confirmación. Al confirmar, todas quedan marcadas eliminado en el
-      build en desarrollo.
-- [ ] Caso de error: si el nombre está vacío o el nombre o la documentación superan la longitud
-      máxima, no se guarda y se muestra el motivo.
+      revisión nueva de la actividad.
+- [ ] La actividad tiene el mismo historial que una historia (ver H4).
 - [ ] Caso de error: si los datos quedan iguales a la revisión vigente, no se crea una revisión nueva.
 
-### H7 - Navegar diagramas anidados y mover actividades de padre
+#### H6.6 - Eliminar una actividad
+
+**Como** dueño o editor, **quiero** eliminar una actividad que ya no forma parte del proceso, **para**
+que el diagrama refleje cómo se trabaja hoy.
+
+Criterios de aceptación:
+- [ ] Cuando el usuario elimina una actividad, el sistema le avisa que también se eliminan sus
+      actividades internas (y las internas de esas, en todos los niveles).
+- [ ] El aviso incluye que también se eliminan las flechas que tocan a cualquiera de esas actividades.
+- [ ] El sistema pide confirmación antes de eliminar.
+- [ ] Al confirmar, todas quedan marcadas eliminado en el build en desarrollo.
+
+### H7 - Diagramas anidados
+
+#### H7.1 - Abrir el diagrama interno de una actividad
 
 **Como** dueño o editor, **quiero** abrir el diagrama interno de una actividad, **para** descomponer
 una actividad grande en subactividades.
@@ -422,16 +565,27 @@ Criterios de aceptación:
 - [ ] Cuando el usuario hace doble clic sobre una actividad (o la selecciona y presiona `Enter`), se
       abre su diagrama interno.
 - [ ] Dentro del diagrama interno, las actividades que se crean quedan como hijas de esa actividad.
-- [ ] Una ruta de navegación ("migas de pan") muestra en qué nivel está el usuario y le permite volver
-      a cualquier nivel superior conservando el contexto.
-- [ ] El usuario puede mover una actividad a otro padre: a cualquier otra actividad del mismo proyecto,
-      o a ninguna (pasa a ser un diagrama). No hay límite de profundidad.
+- [ ] Una ruta de navegación ("migas de pan") muestra en qué nivel está el usuario.
+- [ ] Desde la ruta de navegación el usuario vuelve a cualquier nivel superior conservando el contexto.
+
+#### H7.2 - Mover una actividad a otro padre
+
+**Como** dueño o editor, **quiero** mover una actividad a otro diagrama, **para** reorganizar la
+documentación sin perder su historial.
+
+Criterios de aceptación:
+- [ ] El usuario puede mover una actividad a cualquier otra actividad del mismo proyecto, o a ninguna
+      (pasa a ser un diagrama).
+- [ ] No hay límite de profundidad.
 - [ ] Si la actividad que se mueve tiene flechas, el sistema avisa que se van a quitar (una flecha solo
-      une actividades del mismo diagrama) y las elimina en el mismo cambio.
+      une actividades del mismo diagrama).
+- [ ] Las flechas de la actividad movida se eliminan en el mismo cambio.
 - [ ] Caso de error: no se puede mover una actividad a sí misma ni a una de sus actividades internas
       (en cualquier nivel): crearía una contención circular.
 
-### H8 - Cerrar la versión en desarrollo y numerarla
+### H8 - Cerrar la versión en desarrollo
+
+#### H8.1 - Cerrar y numerar la versión en desarrollo
 
 **Como** dueño o editor, **quiero** cerrar la versión en desarrollo asignándole `Version.Build.Patch`,
 **para** dejar registrado el estado completo de la documentación en un hito.
@@ -439,22 +593,18 @@ Criterios de aceptación:
 Criterios de aceptación:
 - [ ] El selector de versión (arriba a la derecha, ver H9) siempre muestra una entrada "En desarrollo"
       y la opción de cerrarla.
-- [ ] El formulario de cierre propone un `Version.Build.Patch` (mismo Version y Build que la última
-      versión cerrada, con Patch + 1; o `0.0.1` si no se cerró ninguna), editable antes de confirmar,
-      y un nombre y una descripción opcionales.
-- [ ] El formulario pide elegir, de forma obligatoria, a qué entregable del proyecto corresponde el
-      build (ver H14). Cada entregable se muestra con su fecha estimada y su estado. Se puede elegir
-      cualquiera, incluso uno ya entregado (por ejemplo, un build que lo corrige).
-- [ ] Caso de error: si el proyecto todavía no tiene ningún entregable, no se puede cerrar la versión y
-      el sistema avisa que primero el dueño tiene que crear uno.
-- [ ] Caso de error: el entregable elegido tiene que existir y pertenecer al mismo proyecto.
-- [ ] Al confirmar, el build en desarrollo pasa a `cerrada` con esos datos y el sistema abre
-      automáticamente el build en desarrollo siguiente. No se copia ninguna documentación: el estado
-      del build cerrado queda definido por las revisiones confirmadas hasta ese momento (ver la regla
-      de reconstrucción en la sección 6).
+- [ ] El formulario de cierre propone un `Version.Build.Patch`: mismo Version y Build que la última
+      versión cerrada, con Patch + 1; o `0.0.1` si no se cerró ninguna.
+- [ ] El número propuesto es editable antes de confirmar.
+- [ ] El formulario pide un nombre y una descripción opcionales.
+- [ ] Al confirmar, el build en desarrollo pasa a `cerrada` con esos datos.
+- [ ] Al cerrar una versión, el sistema abre automáticamente el build en desarrollo siguiente.
+- [ ] No se copia ninguna documentación: el estado del build cerrado queda definido por las revisiones
+      confirmadas hasta ese momento (ver la regla de reconstrucción en la sección 6).
 - [ ] Si el usuario tiene cambios sin confirmar, el sistema le pide confirmarlos o descartarlos antes
       de cerrar la versión.
-- [ ] Caso de error: `Version`, `Build` y `Patch` deben ser enteros no negativos; `0.0.0` no es válida.
+- [ ] Caso de error: `Version`, `Build` y `Patch` deben ser enteros no negativos.
+- [ ] Caso de error: `0.0.0` no es una versión válida.
 - [ ] Caso de error: no puede haber dos versiones cerradas del mismo proyecto con la misma combinación.
 - [ ] Caso de error: la versión a cerrar debe quedar por encima de la última cerrada (orden `Version`,
       luego `Build`, luego `Patch`). Se pueden saltear números, pero no retroceder.
@@ -462,45 +612,90 @@ Criterios de aceptación:
       mover, conectar o eliminar cualquier elemento), no se puede cerrar y el sistema avisa que no hay
       cambios.
 
-### H9 - Consultar una versión de proyecto cerrada
+#### H8.2 - Vincular la versión a un entregable
 
-**Como** cualquier colaborador, **quiero** ver el proyecto tal como estaba en una versión cerrada,
-**para** saber qué se entregó en un hito.
+**Como** dueño o editor, **quiero** indicar a qué entregable corresponde la versión que cierro,
+**para** saber qué se documentó para cada entrega.
+
+Criterios de aceptación:
+- [ ] El formulario de cierre pide elegir, de forma obligatoria, a qué entregable del proyecto
+      corresponde el build (ver H14).
+- [ ] Cada entregable se muestra con su fecha estimada y su estado.
+- [ ] Se puede elegir cualquier entregable, incluso uno ya entregado (por ejemplo, para un build que lo
+      corrige).
+- [ ] Caso de error: si el proyecto todavía no tiene ningún entregable, no se puede cerrar la versión y
+      el sistema avisa que primero el dueño tiene que crear uno.
+- [ ] Caso de error: el entregable elegido tiene que existir y pertenecer al mismo proyecto.
+
+### H9 - Consultar una versión cerrada
+
+#### H9.1 - Elegir una versión cerrada
+
+**Como** cualquier colaborador, **quiero** elegir una versión cerrada del proyecto, **para** saber qué
+se entregó en un hito.
 
 Criterios de aceptación:
 - [ ] El proyecto tiene un selector de versión arriba a la derecha. Por defecto muestra "En
-      desarrollo"; al elegir una versión cerrada, la etiqueta muestra su `Version.Build.Patch`.
-- [ ] Al elegir una versión cerrada, toda la pantalla pasa a **solo lectura** y muestra la
-      documentación exactamente como estaba al cerrarla: las historias con su contenido, los diagramas
-      con sus actividades **en las mismas posiciones**, la misma jerarquía de diagramas anidados, las
-      mismas flechas y las mismas asociaciones con historias.
-- [ ] Se ve el número, el nombre, la descripción y la fecha de cierre de la versión, y el entregable al
-      que corresponde.
+      desarrollo".
+- [ ] Al elegir una versión cerrada, la etiqueta del selector muestra su `Version.Build.Patch`.
+- [ ] Se ve el número, el nombre, la descripción y la fecha de cierre de la versión.
+- [ ] Se ve el entregable al que corresponde la versión.
 - [ ] Un botón "Volver a la versión actual" regresa al build en desarrollo (en un proyecto finalizado,
       a la última versión cerrada; ver H15).
 - [ ] Caso de error: si el usuario no pertenece al proyecto, el sistema rechaza el acceso.
 
-### H10 - Conectar actividades con flechas
+#### H9.2 - Ver la documentación como estaba al cerrar la versión
 
-**Como** dueño o editor, **quiero** unir actividades con flechas, **para** representar el orden y las
-repeticiones de un proceso.
+**Como** cualquier colaborador, **quiero** ver la documentación exactamente como estaba en una
+versión cerrada, **para** consultar lo entregado sin riesgo de modificarlo.
+
+Criterios de aceptación:
+- [ ] Al elegir una versión cerrada, toda la pantalla pasa a **solo lectura**.
+- [ ] Se ven las historias con el contenido que tenían al cerrar la versión.
+- [ ] Se ven los diagramas con sus actividades **en las mismas posiciones**.
+- [ ] Se ve la misma jerarquía de diagramas anidados.
+- [ ] Se ven las mismas flechas y las mismas asociaciones con historias.
+
+### H10 - Flechas
+
+#### H10.1 - Conectar dos elementos con una flecha
+
+**Como** dueño o editor, **quiero** unir actividades con flechas, **para** representar el orden de un
+proceso.
 
 Criterios de aceptación:
 - [ ] Dentro de un lienzo, el usuario elige "Conectar elementos" (la figura de una flecha en la barra de
-      herramientas, ver H16) y crea una flecha eligiendo un elemento de origen y uno de destino. Volver
-      a elegir "Conectar elementos" cancela la conexión. La flecha se dibuja sola, de borde a borde de
-      los nodos.
-- [ ] Se permite una flecha de una actividad hacia sí misma, y se permiten ciclos (A → B → A), para
-      modelar procesos repetitivos. Un nodo de control no puede tener una flecha hacia sí mismo (H16).
-- [ ] El usuario elimina una flecha sin eliminar las actividades que une.
+      herramientas, ver H16) y crea una flecha eligiendo un elemento de origen y uno de destino.
+- [ ] Volver a elegir "Conectar elementos" cancela la conexión.
+- [ ] La flecha se dibuja sola, de borde a borde de los nodos.
 - [ ] Las flechas se versionan como cualquier elemento: al mirar un build cerrado se ven las flechas
       que existían en ese momento.
 - [ ] Caso de error: si ya existe una flecha con el mismo origen y destino, no se crea otra; el
       sistema resalta la existente.
 - [ ] Caso de error: no se puede unir actividades de distinto diagrama (de distinto padre) ni de otro
-      proyecto. Los diagramas (actividades sin padre) no se conectan con flechas.
+      proyecto.
+- [ ] Caso de error: los diagramas (actividades sin padre) no se conectan con flechas.
 
-### H11 - Navegar los elementos del proyecto desde una barra lateral
+#### H10.2 - Modelar repeticiones con flechas
+
+**Como** dueño o editor, **quiero** dibujar ciclos y flechas de una actividad hacia sí misma, **para**
+modelar procesos repetitivos.
+
+Criterios de aceptación:
+- [ ] Se permite una flecha de una actividad hacia sí misma.
+- [ ] Se permiten ciclos (A → B → A).
+- [ ] Un nodo de control no puede tener una flecha hacia sí mismo (H16).
+
+#### H10.3 - Eliminar una flecha
+
+**Como** dueño o editor, **quiero** eliminar una flecha, **para** corregir el orden del proceso.
+
+Criterios de aceptación:
+- [ ] El usuario elimina una flecha sin eliminar las actividades que une.
+
+### H11 - Barra lateral
+
+#### H11.1 - Navegar los elementos desde la barra lateral
 
 **Como** colaborador, **quiero** ver todos los elementos del proyecto en un solo lugar, **para**
 llegar rápido a lo que necesito.
@@ -508,77 +703,152 @@ llegar rápido a lo que necesito.
 Criterios de aceptación:
 - [ ] La pantalla del proyecto tiene una barra lateral a la izquierda con "Proyecto" (abre la
       información del proyecto) y un acordeón por tipo de elemento versionable: "Historias de usuario"
-      y "Diagramas de actividades". Los tres títulos se muestran con el mismo estilo.
-- [ ] La barra tiene un alto fijo en pantallas anchas: no cambia al abrir o cerrar un acordeón. Solo
-      un acordeón está abierto a la vez (abrir uno cierra el otro), y ocupa el alto que dejan libre los
-      títulos; si su contenido no entra, se desplaza dentro del acordeón.
-- [ ] El acordeón "Diagramas de actividades" muestra un árbol: cada diagrama con sus actividades, y
-      cada actividad con sus actividades internas, en todos los niveles.
-- [ ] Cada elemento del árbol que tiene actividades internas se puede desplegar y plegar. Al entrar,
-      los niveles arrancan plegados, salvo el camino hasta el elemento que se está viendo.
-- [ ] El árbol no tiene sangría: al desplegar un elemento, sus actividades internas se listan debajo
-      de él, alineadas con él. La flecha girada del elemento indica que está desplegado. Un nombre que
-      no entra se ve completo al pasar el mouse.
-- [ ] Debajo del título de cada acordeón abierto hay un **filtro** y, a su derecha, un botón **+** que
-      crea un elemento de ese acordeón ("Nueva historia" o "Nuevo diagrama", nombre que se ve al pasar el
-      mouse). Quien solo consulta (lector, o una versión cerrada) ve el filtro sin el botón **+**.
-- [ ] Al escribir en el filtro, el acordeón muestra solo los elementos cuyo título o nombre contiene el
-      texto, sin distinguir mayúsculas ni tildes. En "Diagramas de actividades" se ven también las
-      actividades que contienen a cada coincidencia (para saber dónde está), con esas ramas desplegadas;
-      el resto se oculta. Si nada coincide, se avisa. Cada acordeón tiene su propio filtro.
-- [ ] Al borrar el texto del filtro, el árbol vuelve a mostrarse plegado y desplegado como estaba.
+      y "Diagramas de actividades".
+- [ ] Los tres títulos de la barra se muestran con el mismo estilo.
 - [ ] Seleccionar un elemento en la barra abre su detalle en el panel principal.
 - [ ] La barra respeta el build que se está mirando: en una versión cerrada muestra los elementos de
       ese momento.
-- [ ] Desde pantallas medianas (48rem de ancho) la barra está a la izquierda del contenido. En
-      pantallas más angostas no ocupa lugar fijo: un botón **"Elementos"** en la barra fija del
-      proyecto (la de "Confirmar cambios", siempre visible) la abre como panel deslizable desde la
-      izquierda, y al elegir un elemento el panel se cierra. Así la barra se alcanza desde cualquier
-      punto de la página.
-- [ ] Si la ventana es baja, el acordeón abierto conserva un alto mínimo y, si aun así no entra todo,
-      la barra se desplaza por dentro: ningún título, botón o separador queda fuera de la barra.
+
+#### H11.2 - Usar los acordeones de la barra
+
+**Como** colaborador, **quiero** que la barra mantenga su tamaño y muestre un tipo de elemento a la
+vez, **para** no perder de vista el resto de la pantalla.
+
+Criterios de aceptación:
+- [ ] La barra tiene un alto fijo en pantallas anchas: no cambia al abrir o cerrar un acordeón.
+- [ ] Solo un acordeón está abierto a la vez: abrir uno cierra el otro.
+- [ ] El acordeón abierto ocupa el alto que dejan libre los títulos; si su contenido no entra, se
+      desplaza dentro del acordeón.
+- [ ] Si la ventana es baja, el acordeón abierto conserva un alto mínimo.
+- [ ] Si aun así no entra todo, la barra se desplaza por dentro: ningún título, botón o separador queda
+      fuera de la barra.
+
+#### H11.3 - Recorrer el árbol de diagramas
+
+**Como** colaborador, **quiero** ver los diagramas como un árbol, **para** entender cómo se
+descompone cada proceso.
+
+Criterios de aceptación:
+- [ ] El acordeón "Diagramas de actividades" muestra un árbol de diagramas: cada diagrama (actividad sin
+      padre) y, debajo, las actividades que tienen su propio diagrama interno, en todos los niveles.
+- [ ] Las actividades que no tienen nada adentro no se listan: se ven en el lienzo del diagrama que las
+      contiene. Cuando una actividad recibe su primer elemento interno, pasa a listarse.
+- [ ] Cada elemento del árbol que tiene actividades internas se puede desplegar y plegar.
+- [ ] Al entrar, los niveles arrancan plegados, salvo el camino hasta el elemento que se está viendo.
+- [ ] El árbol no tiene sangría: al desplegar un elemento, sus actividades internas se listan debajo
+      de él, alineadas con él.
+- [ ] La flecha girada de un elemento indica que está desplegado.
+- [ ] Un nombre que no entra se ve completo al pasar el mouse.
+
+#### H11.4 - Filtrar los elementos de la barra
+
+**Como** colaborador, **quiero** filtrar los elementos de un acordeón por texto, **para** encontrar
+una historia o una actividad en particular.
+
+Criterios de aceptación:
+- [ ] Debajo del título de cada acordeón abierto hay un **filtro**.
+- [ ] Al escribir en el filtro, el acordeón muestra solo los elementos cuyo título o nombre contiene el
+      texto, sin distinguir mayúsculas ni tildes.
+- [ ] En "Diagramas de actividades" se ven también las actividades que contienen a cada coincidencia
+      (para saber dónde está), con esas ramas desplegadas; el resto se oculta.
+- [ ] El filtro también encuentra las actividades que no se listan (las que no tienen nada adentro): en
+      su lugar se ve el diagrama que las contiene, con su camino.
+- [ ] Si nada coincide, se avisa.
+- [ ] Cada acordeón tiene su propio filtro.
+- [ ] Al borrar el texto del filtro, el árbol vuelve a mostrarse plegado y desplegado como estaba.
+
+#### H11.5 - Crear elementos desde la barra
+
+**Como** dueño o editor, **quiero** crear una historia o un diagrama desde la barra, **para** no tener
+que ir a otra pantalla.
+
+Criterios de aceptación:
+- [ ] A la derecha del filtro de cada acordeón hay un botón **+** que crea un elemento de ese acordeón.
+- [ ] Al pasar el mouse sobre el botón **+** se ve qué crea: "Nueva historia" o "Nuevo diagrama".
+- [ ] Quien solo consulta (lector, o una versión cerrada) ve el filtro sin el botón **+**.
+
+#### H11.6 - Usar la barra en pantallas angostas
+
+**Como** colaborador, **quiero** alcanzar la barra desde un celular o una ventana angosta, **para**
+navegar el proyecto desde cualquier dispositivo.
+
+Criterios de aceptación:
+- [ ] Desde pantallas medianas (48rem de ancho) la barra está a la izquierda del contenido.
+- [ ] En pantallas más angostas la barra no ocupa lugar fijo: un botón **"Elementos"** en la barra fija
+      del proyecto (la de "Confirmar cambios", siempre visible) la abre como panel deslizable desde la
+      izquierda.
+- [ ] Al elegir un elemento en el panel deslizable, el panel se cierra.
 
 ### H12 - Confirmar cambios y trabajar en simultáneo
 
-**Como** dueño o editor, **quiero** confirmar mis cambios de una sola vez y enterarme de lo que
-hicieron los demás, **para** no generar versiones por cada gesto ni pisar el trabajo de otro.
+#### H12.1 - Acumular los cambios en un borrador
+
+**Como** dueño o editor, **quiero** que mis ediciones se acumulen antes de guardarlas, **para** no
+generar versiones por cada gesto.
 
 Criterios de aceptación:
 - [ ] Las ediciones (crear, modificar, mover, conectar, asociar o eliminar) se acumulan en un borrador
       que vive en el navegador y no tocan la base.
-- [ ] El botón **"Confirmar cambios"** está siempre visible. Está gris y deshabilitado si no hay
-      cambios, y toma el color de acción cuando hay cambios pendientes. No muestra la cantidad.
-- [ ] Un botón "Descartar cambios" vuelve al estado confirmado. Si el usuario intenta salir con cambios
-      sin confirmar, el sistema le avisa.
-- [ ] Al confirmar, se crea **una revisión por elemento modificado** (no una por gesto), todas en una
-      sola operación: o se guardan todas, o ninguna.
+- [ ] Un botón "Descartar cambios" vuelve al estado confirmado.
+- [ ] Si el usuario intenta salir con cambios sin confirmar, el sistema le avisa.
+
+#### H12.2 - Confirmar los cambios
+
+**Como** dueño o editor, **quiero** confirmar mis cambios de una sola vez, **para** registrar una
+versión coherente de todo lo que modifiqué.
+
+Criterios de aceptación:
+- [ ] El botón **"Confirmar cambios"** está siempre visible.
+- [ ] El botón está gris y deshabilitado si no hay cambios, y toma el color de acción cuando hay
+      cambios pendientes.
+- [ ] El botón no muestra la cantidad de cambios.
+- [ ] Al confirmar, se crea **una revisión por elemento modificado** (no una por gesto).
+- [ ] Todas las revisiones se guardan en una sola operación: o se guardan todas, o ninguna.
+
+#### H12.3 - Enterarme de lo que confirmaron otros
+
+**Como** dueño o editor, **quiero** enterarme de los cambios que confirmaron los demás, **para**
+trabajar sobre la documentación actualizada.
+
+Criterios de aceptación:
 - [ ] Si otro usuario confirma cambios, quien **no** tiene borrador ve la pantalla actualizada sola.
 - [ ] Si otro usuario confirma cambios y el usuario **sí** tiene borrador, su pantalla no se recarga.
-      Aparece un botón en la cabecera, junto al selector de versión, que abre una ventana con los
-      cambios agrupados por usuario, por ejemplo: "Cambios realizados por Juan: Se modificó Actividad
-      Facturación". Un cambio en una flecha se informa como un cambio en la actividad cuyo diagrama la
-      contiene.
+- [ ] En ese caso aparece un botón en la cabecera, junto al selector de versión, que abre una ventana
+      con los cambios agrupados por usuario, por ejemplo: "Cambios realizados por Juan: Se modificó
+      Actividad Facturación".
+- [ ] Un cambio en una flecha se informa como un cambio en la actividad cuyo diagrama la contiene.
+
+#### H12.4 - Evitar pisar el trabajo de otro
+
+**Como** dueño o editor, **quiero** que el sistema me frene si otro cambió lo mismo que yo, **para**
+no pisar su trabajo.
+
+Criterios de aceptación:
 - [ ] Si otro usuario confirmó cambios sobre un elemento que el usuario actual tiene modificado en su
       borrador, el botón "Confirmar cambios" se pone **amarillo**: avisa que la confirmación va a ser
       rechazada.
 - [ ] Caso de error: al confirmar, si otro usuario ya confirmó una revisión más nueva de algún elemento
-      del borrador, o eliminó un elemento al que el borrador hace referencia, el sistema rechaza toda la
-      confirmación, dice qué elementos tienen conflicto y ofrece recargarlos. No hay fusión automática.
+      del borrador, el sistema rechaza toda la confirmación.
+- [ ] Caso de error: al confirmar, si otro usuario eliminó un elemento al que el borrador hace
+      referencia, el sistema rechaza toda la confirmación.
+- [ ] Al rechazar, el sistema dice qué elementos tienen conflicto y ofrece recargarlos.
+- [ ] No hay fusión automática de cambios.
 
 > **Lector:** ve la misma pantalla en modo lectura, sin borrador ni botones de edición.
 
-### H13 - Definir el proyecto
+### H13 - Definición del proyecto
+
+#### H13.1 - Definir el proyecto
 
 **Como** dueño, **quiero** dejar escrito el problema de negocio, el objetivo, los límites y las fechas
 del proyecto, **para** que todo el equipo entienda por qué existe y qué incluye.
 
 Criterios de aceptación:
 - [ ] En "Información del proyecto", el dueño edita nombre, descripción, problema de negocio, objetivo
-      del proyecto, límites y exclusiones (una lista), fecha de inicio y fecha estimada de fin, y los
-      guarda con un botón propio (no forma parte de "Confirmar cambios" ni de ningún build).
+      del proyecto, límites y exclusiones (una lista), fecha de inicio y fecha estimada de fin.
+- [ ] La definición se guarda con un botón propio: no forma parte de "Confirmar cambios" ni de ningún
+      build.
 - [ ] Todos los campos son opcionales salvo el nombre.
-- [ ] El resto de los colaboradores ve los mismos datos en solo lectura.
-- [ ] Al mirar una versión cerrada se ve la definición actual del proyecto.
 - [ ] Caso de error: si un campo supera su longitud máxima (ver sección 3), no se guarda y se muestra
       el motivo.
 - [ ] Caso de error: si la fecha estimada de fin es anterior a la fecha de inicio, no se guarda y se
@@ -586,33 +856,72 @@ Criterios de aceptación:
 - [ ] Caso de error: si quien intenta guardar no es el dueño, el sistema rechaza la acción aunque la
       llamada no venga de la interfaz.
 
-### H14 - Planificar entregables y registrar las entregas
+#### H13.2 - Consultar la definición del proyecto
 
-**Como** dueño, **quiero** planificar los entregables del proyecto con su fecha estimada y marcar
-cuándo se entregó cada uno, **para** que el equipo vea si vamos atrasados contra lo comprometido.
+**Como** colaborador, **quiero** leer la definición del proyecto, **para** entender su alcance.
 
 Criterios de aceptación:
-- [ ] En "Información del proyecto" se listan los entregables, ordenados por fecha estimada, con su
-      estado y los builds cerrados que apuntan a cada uno.
-- [ ] El dueño crea un entregable con nombre, descripción opcional y fecha estimada de entrega, y
-      puede editarlo después.
-- [ ] El dueño marca un entregable como entregado indicando la fecha de entrega, y puede desmarcarlo
-      (por ejemplo, si el cliente lo rechaza). No hace falta que tenga builds cerrados.
+- [ ] El resto de los colaboradores ve los mismos datos en solo lectura.
+- [ ] Al mirar una versión cerrada se ve la definición actual del proyecto.
+
+### H14 - Entregables
+
+#### H14.1 - Planificar un entregable
+
+**Como** dueño, **quiero** planificar los entregables del proyecto con su fecha estimada, **para**
+que el equipo sepa qué se comprometió y para cuándo.
+
+Criterios de aceptación:
+- [ ] El dueño crea un entregable con nombre, descripción opcional y fecha estimada de entrega.
+- [ ] El dueño puede editar un entregable después de crearlo.
+- [ ] Caso de error: si falta el nombre o la fecha estimada, no se guarda y se muestra el motivo.
+- [ ] Caso de error: si un campo supera su longitud máxima, no se guarda y se muestra el motivo.
+- [ ] Caso de error: si quien intenta crear o editar un entregable no es el dueño, el sistema rechaza la
+      acción aunque la llamada no venga de la interfaz.
+
+#### H14.2 - Registrar una entrega
+
+**Como** dueño, **quiero** marcar cuándo se entregó cada entregable, **para** que el equipo vea si
+cumplió lo comprometido.
+
+Criterios de aceptación:
+- [ ] El dueño marca un entregable como entregado indicando la fecha de entrega.
+- [ ] El dueño puede desmarcar un entregable entregado (por ejemplo, si el cliente lo rechaza).
+- [ ] Para marcarlo como entregado no hace falta que tenga builds cerrados.
+- [ ] La fecha de entrega puede ser posterior a la fecha estimada: en ese caso queda "Entregado con
+      atraso".
+- [ ] Caso de error: si se marca como entregado sin fecha de entrega, no se guarda y se muestra el
+      motivo.
+- [ ] Caso de error: si la fecha de entrega todavía no llegó (es posterior a hoy), no se guarda y se
+      muestra el motivo.
+
+#### H14.3 - Ver el estado de los entregables
+
+**Como** colaborador, **quiero** ver los entregables con su estado, **para** saber si vamos atrasados
+contra lo comprometido.
+
+Criterios de aceptación:
+- [ ] En "Información del proyecto" se listan los entregables, ordenados por fecha estimada.
+- [ ] Cada entregable muestra su estado y los builds cerrados que apuntan a él.
 - [ ] El estado se calcula solo: **Pendiente**, **Atrasado**, **Entregado a tiempo** o **Entregado con
       atraso** (ver sección 6).
-- [ ] El dueño puede eliminar un entregable al que no apunta ningún build cerrado.
 - [ ] El resto de los colaboradores ve los entregables y su estado en solo lectura.
-- [ ] Caso de error: si falta el nombre o la fecha estimada, o un campo supera su longitud máxima, no
-      se guarda y se muestra el motivo.
-- [ ] Caso de error: si se marca como entregado sin fecha de entrega, o con una fecha que todavía no
-      llegó (posterior a hoy), no se guarda y se muestra el motivo. Sí puede ser posterior a la fecha
-      estimada: en ese caso queda "Entregado con atraso".
+
+#### H14.4 - Eliminar un entregable
+
+**Como** dueño, **quiero** eliminar un entregable que ya no corresponde, **para** que la planificación
+refleje lo comprometido.
+
+Criterios de aceptación:
+- [ ] El dueño puede eliminar un entregable al que no apunta ningún build cerrado.
 - [ ] Caso de error: si se intenta eliminar un entregable al que apunta algún build cerrado, no se
       elimina y se avisa qué versiones lo referencian.
-- [ ] Caso de error: si quien intenta crear, editar o eliminar un entregable no es el dueño, el sistema
-      rechaza la acción aunque la llamada no venga de la interfaz.
+- [ ] Caso de error: si quien intenta eliminar un entregable no es el dueño, el sistema rechaza la
+      acción aunque la llamada no venga de la interfaz.
 
 ### H15 - Finalizar y reabrir el proyecto
+
+#### H15.1 - Finalizar el proyecto
 
 **Como** dueño, **quiero** finalizar el proyecto cuando se terminó de documentar, **para** que no quede
 un build "En desarrollo" invitando a seguir documentando algo cerrado.
@@ -620,92 +929,161 @@ un build "En desarrollo" invitando a seguir documentando algo cerrado.
 Criterios de aceptación:
 - [ ] En "Información del proyecto" el dueño ve "Finalizar proyecto". Ningún otro rol ve la opción.
 - [ ] Si el build en desarrollo tiene cambios confirmados, "Finalizar proyecto" abre la misma ventana
-      que cerrar una versión (H8: número, entregable, nombre y descripción). Al confirmar, el build se
-      cierra con esos datos y **no** se abre uno nuevo: el proyecto queda finalizado.
+      que cerrar una versión (H8: número, entregable, nombre y descripción).
+- [ ] Al confirmar esa ventana, el build se cierra con esos datos y **no** se abre uno nuevo: el
+      proyecto queda finalizado.
 - [ ] Si el build en desarrollo no tiene cambios, solo se pide confirmar: ese build vacío se descarta y
       el proyecto queda finalizado en su última versión cerrada.
-- [ ] Caso de error: si el proyecto nunca cerró una versión y el build en desarrollo no tiene cambios,
-      no hay nada que finalizar y el sistema lo avisa.
 - [ ] Si el dueño tiene cambios sin confirmar, el sistema le pide confirmarlos o descartarlos antes de
       finalizar (como en H8).
-- [ ] Con el proyecto finalizado: no hay build "En desarrollo"; el selector de versión solo muestra las
-      versiones cerradas y la pantalla abre en la última; nadie puede crear, modificar ni eliminar
-      documentación ni cerrar versiones. El dueño sigue pudiendo editar la definición del proyecto,
-      los entregables (por ejemplo, marcar uno como entregado) y los colaboradores.
+- [ ] No se pide un motivo para finalizar.
+- [ ] Finalizar no exige que los entregables estén entregados.
+- [ ] Caso de error: si el proyecto nunca cerró una versión y el build en desarrollo no tiene cambios,
+      no hay nada que finalizar y el sistema lo avisa.
+- [ ] Caso de error: si quien intenta finalizar no es el dueño, el sistema rechaza la acción aunque la
+      llamada no venga de la interfaz.
+
+#### H15.2 - Consultar un proyecto finalizado
+
+**Como** colaborador, **quiero** que un proyecto finalizado quede protegido contra cambios, **para**
+que su documentación final no se modifique por error.
+
+Criterios de aceptación:
+- [ ] Con el proyecto finalizado no hay build "En desarrollo".
+- [ ] El selector de versión solo muestra las versiones cerradas y la pantalla abre en la última.
+- [ ] Nadie puede crear, modificar ni eliminar documentación ni cerrar versiones.
+- [ ] El dueño sigue pudiendo editar la definición del proyecto, los entregables (por ejemplo, marcar
+      uno como entregado) y los colaboradores.
 - [ ] Si otro usuario tenía cambios sin confirmar, al confirmarlos el sistema los rechaza y le avisa
       que el proyecto fue finalizado.
 - [ ] En "Mis proyectos", cada tarjeta indica si el proyecto está **En proceso** o **Finalizado**.
-- [ ] Con el proyecto finalizado, el dueño ve "Reabrir proyecto": al confirmarlo se abre un build en
-      desarrollo nuevo y el proyecto vuelve a estar en proceso. La numeración de las versiones sigue
-      desde la última cerrada.
-- [ ] No se pide un motivo para finalizar ni para reabrir.
-- [ ] Finalizar no exige que los entregables estén entregados.
-- [ ] Caso de error: si quien intenta finalizar o reabrir no es el dueño, el sistema rechaza la acción
-      aunque la llamada no venga de la interfaz.
 
-### H16 - Agregar nodos de control a un diagrama
+#### H15.3 - Reabrir el proyecto
 
-**Como** dueño o editor, **quiero** agregar nodos inicial, final, de decisión y de bifurcación, y
-condiciones en las flechas, **para** modelar un diagrama de actividades completo según UML.
+**Como** dueño, **quiero** reabrir un proyecto finalizado, **para** seguir documentándolo si hace
+falta.
+
+Criterios de aceptación:
+- [ ] Con el proyecto finalizado, el dueño ve "Reabrir proyecto".
+- [ ] Al confirmarlo se abre un build en desarrollo nuevo y el proyecto vuelve a estar en proceso.
+- [ ] La numeración de las versiones sigue desde la última cerrada.
+- [ ] No se pide un motivo para reabrir.
+- [ ] Caso de error: si quien intenta reabrir no es el dueño, el sistema rechaza la acción aunque la
+      llamada no venga de la interfaz.
+
+### H16 - Nodos de control
+
+#### H16.1 - Agregar elementos desde la barra de figuras
+
+**Como** dueño o editor, **quiero** agregar cada elemento del diagrama desde su figura, **para**
+reconocer qué agrego antes de hacer clic.
 
 Criterios de aceptación:
 - [ ] La barra de herramientas del lienzo muestra la figura de cada elemento que se puede agregar:
       **actividad**, **nodo inicial**, **nodo final de actividad**, **nodo final de flujo**,
-      **decisión** y **bifurcación**, cada una con su forma de UML (ver sección 3), y la de una flecha
-      para **conectar elementos** (H10). Al hacer clic en una figura, el elemento se agrega al diagrama.
-      Al pasar el mouse sobre una figura se ve su nombre: "Actividad", "Nodo inicial", "Nodo final de
+      **decisión** y **bifurcación**, cada una con su forma de UML (ver sección 3).
+- [ ] La barra muestra también la figura de una flecha, para **conectar elementos** (H10).
+- [ ] Al hacer clic en una figura, el elemento se agrega al diagrama.
+- [ ] Al pasar el mouse sobre una figura se ve su nombre: "Actividad", "Nodo inicial", "Nodo final de
       actividad", "Nodo final de flujo", "Decisión", "Bifurcación" y "Conectar elementos".
+
+#### H16.2 - Usar nodos de control en un diagrama
+
+**Como** dueño o editor, **quiero** agregar nodos inicial, final, de decisión y de bifurcación,
+**para** modelar un diagrama de actividades completo según UML.
+
+Criterios de aceptación:
 - [ ] Los nodos de control se mueven, se conectan con flechas, se eliminan y se versionan igual que
-      las actividades, y se guardan con "Confirmar cambios" (H12).
+      las actividades.
+- [ ] Los nodos de control se guardan con "Confirmar cambios" (H12).
 - [ ] Los nodos de control no aparecen en la barra lateral: solo en el lienzo de su diagrama.
-- [ ] Al elegir un nodo de control en el lienzo, el panel muestra su tipo y la opción de eliminarlo. No
-      tiene nombre, documentación, historias asociadas ni diagrama interno.
-- [ ] Una flecha puede tener una **guarda**: una condición opcional que se muestra entre corchetes
-      sobre la flecha (por ejemplo, `[pago aprobado]`). Está pensada para las que salen de una decisión,
-      pero se permite en cualquiera.
+- [ ] Al elegir un nodo de control en el lienzo, el panel muestra su tipo y la opción de eliminarlo.
+- [ ] Un nodo de control no tiene nombre, documentación, historias asociadas ni diagrama interno.
+- [ ] Al mirar una versión cerrada se ven los nodos de control tal como estaban.
+- [ ] Caso de error: un nodo de control no puede ser un diagrama ni moverse fuera de uno (siempre tiene
+      padre).
+
+#### H16.3 - Respetar las reglas de UML en las flechas
+
+**Como** dueño o editor, **quiero** que el sistema me impida dibujar flechas sin sentido en UML,
+**para** que los diagramas sean correctos.
+
+Criterios de aceptación:
 - [ ] Caso de error: un nodo inicial no puede tener flechas que entren.
 - [ ] Caso de error: un nodo final (de actividad o de flujo) no puede tener flechas que salgan.
 - [ ] Caso de error: un nodo de control no puede tener una flecha hacia sí mismo.
-- [ ] Caso de error: un nodo de control no puede ser un diagrama ni moverse fuera de uno (siempre tiene
-      padre).
+- [ ] El resto de las reglas de UML no se valida: puede haber varios nodos iniciales en un diagrama.
+- [ ] Una decisión o una bifurcación pueden tener cualquier cantidad de flechas.
+
+#### H16.4 - Poner una guarda a una flecha
+
+**Como** dueño o editor, **quiero** escribir una condición sobre una flecha, **para** indicar cuándo
+se toma cada camino de una decisión.
+
+Criterios de aceptación:
+- [ ] Una flecha puede tener una **guarda**: una condición opcional que se muestra entre corchetes
+      sobre la flecha (por ejemplo, `[pago aprobado]`).
+- [ ] La guarda está pensada para las flechas que salen de una decisión, pero se permite en cualquiera.
+- [ ] Al mirar una versión cerrada se ven las guardas tal como estaban.
 - [ ] Caso de error: si la guarda supera su longitud máxima (ver sección 3), no se guarda y se muestra
       el motivo.
-- [ ] El resto de las reglas de UML no se valida: puede haber varios nodos iniciales en un diagrama, y
-      una decisión o una bifurcación pueden tener cualquier cantidad de flechas.
-- [ ] Al mirar una versión cerrada se ven los nodos de control y las guardas tal como estaban.
 
-### H17 - Agregar carriles a un diagrama
+### H17 - Carriles
+
+#### H17.1 - Agregar un carril
 
 **Como** dueño o editor, **quiero** dividir el lienzo de un diagrama en carriles con nombre, **para**
 mostrar qué área o rol realiza cada parte del proceso.
 
 Criterios de aceptación:
 - [ ] La barra de herramientas del lienzo muestra la figura de un **carril** ("Carril" al pasar el
-      mouse). Al hacer clic se agrega un carril con un nombre que no se repite en el diagrama
-      ("Carril 1", "Carril 2"…), pegado a la derecha del carril que está más a la derecha (o en el
-      borde izquierdo del lienzo si no hay ninguno).
+      mouse).
+- [ ] Al hacer clic se agrega un carril con un nombre que no se repite en el diagrama ("Carril 1",
+      "Carril 2"…).
+- [ ] El carril nuevo queda pegado a la derecha del carril que está más a la derecha, o en el borde
+      izquierdo del lienzo si no hay ninguno.
 - [ ] Un carril se dibuja como una franja vertical que ocupa todo el alto del lienzo, con su nombre en
-      la cabecera, detrás de los nodos y las flechas.
+      la cabecera.
+- [ ] Los carriles se dibujan detrás de los nodos y las flechas.
+- [ ] Los nodos de control no tienen carriles, porque no tienen diagrama interno.
+- [ ] Los carriles no aparecen en la barra lateral: solo en el lienzo de su diagrama.
+
+#### H17.2 - Mover y cambiar el ancho de un carril
+
+**Como** dueño o editor, **quiero** acomodar los carriles en el lienzo, **para** que cada uno abarque
+los pasos que le corresponden.
+
+Criterios de aceptación:
 - [ ] El usuario mueve un carril hacia los costados arrastrando su cabecera (o con las flechas izquierda
-      y derecha del teclado). Lo ensancha o lo angosta arrastrando cualquiera de sus dos bordes laterales:
-      no hay un campo para escribir el ancho. Moverlo o cambiar su ancho no mueve ningún nodo.
-- [ ] El carril guarda solo su posición y su ancho: no se registra qué nodos quedan dentro. Los nodos
-      se ubican libremente, dentro o fuera de los carriles, y los carriles pueden superponerse; nada de
-      eso se valida.
+      y derecha del teclado).
+- [ ] El usuario ensancha o angosta un carril arrastrando cualquiera de sus dos bordes laterales.
+- [ ] No hay un campo para escribir el ancho.
+- [ ] Moverlo o cambiar su ancho no mueve ningún nodo.
+- [ ] El carril guarda solo su posición y su ancho: no se registra qué nodos quedan dentro.
+- [ ] Los nodos se ubican libremente, dentro o fuera de los carriles, y los carriles pueden
+      superponerse; nada de eso se valida.
+- [ ] Caso de error: el ancho no puede quedar fuera del mínimo y el máximo (ver sección 3).
+
+#### H17.3 - Editar y eliminar un carril
+
+**Como** dueño o editor, **quiero** renombrar o eliminar un carril, **para** mantener al día quién
+hace cada parte del proceso.
+
+Criterios de aceptación:
 - [ ] Al elegir un carril (clic en su cabecera), el panel muestra su nombre para editarlo, la opción de
       eliminarlo y su historial de versiones.
 - [ ] Eliminar un carril no elimina ni mueve los nodos que se ven sobre él.
-- [ ] Los carriles se versionan como cualquier elemento y se guardan con "Confirmar cambios" (H12). Al
-      mirar una versión cerrada se ven los carriles como estaban.
-- [ ] Un carril pertenece a un diagrama y no cambia de diagrama. Eliminar la actividad cuyo diagrama
-      divide elimina sus carriles en el mismo cambio (como a sus actividades internas). Mover esa
-      actividad de padre conserva sus carriles.
-- [ ] Los nodos de control no tienen carriles, porque no tienen diagrama interno.
-- [ ] Los carriles no aparecen en la barra lateral: solo en el lienzo de su diagrama.
-- [ ] Caso de error: si el nombre está vacío, supera la longitud máxima o ya lo usa otro carril vigente
-      del mismo diagrama, no se guarda y se muestra el motivo. El nombre se compara igual que el título
-      de una historia (sin distinguir mayúsculas ni espacios al borde).
-- [ ] Caso de error: el ancho no puede quedar fuera del mínimo y el máximo (ver sección 3).
+- [ ] Los carriles se versionan como cualquier elemento y se guardan con "Confirmar cambios" (H12).
+- [ ] Al mirar una versión cerrada se ven los carriles como estaban.
+- [ ] Un carril pertenece a un diagrama y no cambia de diagrama.
+- [ ] Eliminar la actividad cuyo diagrama divide elimina sus carriles en el mismo cambio (como a sus
+      actividades internas).
+- [ ] Mover de padre la actividad cuyo diagrama divide conserva sus carriles.
+- [ ] Caso de error: si el nombre está vacío o supera la longitud máxima, no se guarda y se muestra el
+      motivo.
+- [ ] Caso de error: si el nombre ya lo usa otro carril vigente del mismo diagrama, no se guarda y se
+      muestra el motivo. El nombre se compara igual que el título de una historia (sin distinguir
+      mayúsculas ni espacios al borde).
 
 ## 5. Flujo principal
 
