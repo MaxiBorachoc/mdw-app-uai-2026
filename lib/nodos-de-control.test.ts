@@ -19,8 +19,9 @@ const base = (): Estado => ({
   historias: [],
   actividades: [nodo("D", null), nodo("A", "D"), nodo("I", "D", "INICIAL"), nodo("X", "D", "DECISION"), nodo("F", "D", "FINAL_ACTIVIDAD")],
   conexiones: [],
+  carriles: [],
 });
-const sinCambios = (): Cambios => ({ historias: [], actividades: [], conexiones: [] });
+const sinCambios = (): Cambios => ({ historias: [], actividades: [], conexiones: [], carriles: [] });
 const ids = (tipo: string, temporal: string) => `${tipo.toLowerCase()}-${temporal.slice(6)}`;
 const flecha = (id: string, origenId: string, destinoId: string, guarda = "") => ({ id, base: null, eliminado: false, origenId, destinoId, guarda });
 const conFlecha = (origenId: string, destinoId: string) => {

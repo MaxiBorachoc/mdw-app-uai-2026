@@ -45,7 +45,8 @@ export default async function ProyectoPage({ params, searchParams }: Contexto) {
       descripcion: b.descripcion,
       cerradaEl: b.cerradaEl?.toISOString() ?? null,
       entregable: b.entregable?.nombre ?? null,
-      tieneCambios: b._count.historiaRevisiones + b._count.actividadRevisiones + b._count.conexionRevisiones > 0,
+      tieneCambios:
+        b._count.historiaRevisiones + b._count.actividadRevisiones + b._count.conexionRevisiones + b._count.carrilRevisiones > 0,
     }),
   );
 

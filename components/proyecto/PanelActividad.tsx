@@ -5,14 +5,16 @@
  * raíz, su diagrama interno (el lienzo con sus actividades hijas y las flechas),
  * los datos de la actividad elegida en el lienzo, y los de la actividad abierta
  * con su historial. H16: un nodo de control elegido solo muestra su tipo, la
+ * opción de eliminarlo y su historial. H17: un carril elegido muestra su nombre, la
  * opción de eliminarlo y su historial.
  */
 import { FormularioActividad } from "@/components/proyecto/FormularioActividad";
 import { HistorialRevisiones } from "@/components/proyecto/HistorialRevisiones";
-import { LienzoDiagrama, type FlechaLienzo, type NodoLienzo } from "@/components/proyecto/LienzoDiagrama";
+import { LienzoDiagrama, type CarrilLienzo, type FlechaLienzo, type NodoLienzo } from "@/components/proyecto/LienzoDiagrama";
+import { PanelCarril } from "@/components/proyecto/PanelCarril";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { esNodoDeControl, etiquetaTipoNodo, type Actividad, type TipoNodo } from "@/lib/documentacion";
+import { esNodoDeControl, etiquetaTipoNodo, type Actividad, type Carril, type TipoNodo } from "@/lib/documentacion";
 
 type DatosFormulario = {
   actividad: Actividad;
@@ -42,6 +44,12 @@ export function PanelActividad({
   onConectar,
   onEliminarFlecha,
   onCambiarGuarda,
+  carriles,
+  carrilElegido,
+  onSeleccionarCarril,
+  onCrearCarril,
+  onCambiarCarril,
+  onEliminarCarril,
 }: {
   proyectoId: string;
   abierta: DatosFormulario;
@@ -64,6 +72,12 @@ export function PanelActividad({
   onConectar: (origenId: string, destinoId: string) => void;
   onEliminarFlecha: (id: string) => void;
   onCambiarGuarda: (id: string, guarda: string) => void;
+  carriles: CarrilLienzo[];
+  carrilElegido: { carril: Carril; nuevo: boolean } | null;
+  onSeleccionarCarril: (id: string | null) => void;
+  onCrearCarril: () => void;
+  onCambiarCarril: (id: string, cambio: Partial<Pick<Carril, "nombre" | "posicionX" | "ancho">>) => void;
+  onEliminarCarril: (id: string) => void;
 }) {
   const controlElegido = nodoElegido !== null && esNodoDeControl(nodoElegido.actividad.tipo);
   const a = abierta.actividad;
@@ -116,9 +130,28 @@ export function PanelActividad({
             onConectar={onConectar}
             onEliminarFlecha={onEliminarFlecha}
             onCambiarGuarda={onCambiarGuarda}
+            carriles={carriles}
+            carrilElegido={carrilElegido?.carril.id ?? null}
+            onSeleccionarCarril={onSeleccionarCarril}
+            onCrearCarril={onCrearCarril}
+            onCambiarCarril={onCambiarCarril}
           />
         </CardContent>
       </Card>
+
+      {carrilElegido && (
+        <PanelCarril
+          proyectoId={proyectoId}
+          carril={carrilElegido.carril}
+          nuevo={carrilElegido.nuevo}
+          soloLectura={soloLectura}
+          mostrarErrores={mostrarErrores}
+          nombreDe={nombreDe}
+          onCambiarNombre={(nombre) => onCambiarCarril(carrilElegido.carril.id, { nombre })}
+          onEliminar={() => onEliminarCarril(carrilElegido.carril.id)}
+          onCerrar={() => onSeleccionarCarril(null)}
+        />
+      )}
 
       {nodoElegido && (
         <Card>

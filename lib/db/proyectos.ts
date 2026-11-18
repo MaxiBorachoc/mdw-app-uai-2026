@@ -173,6 +173,7 @@ export async function eliminarProyectoDeOwner(id: string, usuarioId: string) {
       await bloquearBuildEnDesarrollo(tx, id);
 
       await tx.conexionActividadVersion.deleteMany({ where: { conexion: { proyectoId: id } } });
+      await tx.carrilVersion.deleteMany({ where: { carril: { proyectoId: id } } });
       await tx.actividadVersionHistoria.deleteMany({ where: { actividadVersion: { actividad: { proyectoId: id } } } });
       await tx.actividadVersion.deleteMany({ where: { actividad: { proyectoId: id } } });
       await tx.historiaUsuarioVersion.deleteMany({ where: { historia: { proyectoId: id } } });

@@ -8,6 +8,8 @@
  * vista.y + y * vista.escala) del recuadro del lienzo.
  */
 
+import { ANCHO_CARRIL_MAX, ANCHO_CARRIL_MIN } from "./schemas/carril";
+
 export type Vista = { x: number; y: number; escala: number };
 
 export const VISTA_INICIAL: Vista = { x: 0, y: 0, escala: 1 };
@@ -47,4 +49,27 @@ export function acercarVista(v: Vista, delta: number, cx: number, cy: number, m:
   const px = (cx - v.x) / v.escala;
   const py = (cy - v.y) / v.escala;
   return limitarVista({ escala, x: cx - px * escala, y: cy - py * escala }, m);
+}
+
+// ---------------------------------------------------------------------------
+// H17: arrastrar un carril
+// ---------------------------------------------------------------------------
+
+export type ModoArrastreCarril = "mover" | "izquierda" | "derecha";
+type Franja = { posicionX: number; ancho: number };
+
+/**
+ * Dónde queda un carril al arrastrarlo `dx` píxeles del diagrama: desde la
+ * cabecera se mueve entero; desde un borde se estira o se encoge con el borde
+ * opuesto fijo. Nunca sale por la izquierda del lienzo y el ancho respeta el mínimo
+ * y el máximo.
+ */
+export function arrastrarCarril(inicio: Franja, modo: ModoArrastreCarril, dx: number): Franja {
+  if (modo === "mover") return { posicionX: Math.max(0, Math.round(inicio.posicionX + dx)), ancho: inicio.ancho };
+  if (modo === "derecha") {
+    return { posicionX: inicio.posicionX, ancho: entre(Math.round(inicio.ancho + dx), ANCHO_CARRIL_MIN, ANCHO_CARRIL_MAX) };
+  }
+  const derecha = inicio.posicionX + inicio.ancho;
+  const posicionX = entre(Math.round(inicio.posicionX + dx), Math.max(0, derecha - ANCHO_CARRIL_MAX), derecha - ANCHO_CARRIL_MIN);
+  return { posicionX, ancho: derecha - posicionX };
 }

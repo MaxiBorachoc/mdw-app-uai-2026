@@ -1,6 +1,6 @@
 /**
- * Acceso a datos de la documentación versionada: historias, actividades y flechas
- * (docs/spec.md, secciones 3 y 6). Las reglas viven en lib/documentacion.ts; acá
+ * Acceso a datos de la documentación versionada: historias, actividades, flechas y
+ * carriles (docs/spec.md, secciones 3 y 6). Las reglas viven en lib/documentacion.ts; acá
  * solo se lee y se escribe.
  *
  * Toda función recibe el proyectoId y filtra por él: quien llama ya verificó con
@@ -15,6 +15,7 @@ import {
   ultimaRevisionHasta,
   type Actividad,
   type Cambios,
+  type Carril,
   type Conexion,
   type ElementoConProblema,
   type Estado,
@@ -44,7 +45,7 @@ const filtroBuild = (orden: number | null) =>
  * desarrollo), incluidas las que lo dan de baja. Para mostrar, pasar por vigentes().
  */
 export async function cargarEstado(proyectoId: string, orden: number | null, db: Cliente = prisma): Promise<Estado> {
-  const [historias, actividades, conexiones] = await Promise.all([
+  const [historias, actividades, conexiones, carriles] = await Promise.all([
     db.historiaUsuarioVersion.findMany({
       where: { historia: { proyectoId }, ...filtroBuild(orden) },
       select: {
@@ -84,6 +85,20 @@ export async function cargarEstado(proyectoId: string, orden: number | null, db:
         actividadOrigenId: true,
         actividadDestinoId: true,
         guarda: true,
+        versionProyecto: { select: { orden: true } },
+      },
+      take: LIMITE_REVISIONES,
+    }),
+    db.carrilVersion.findMany({
+      where: { carril: { proyectoId }, ...filtroBuild(orden) },
+      select: {
+        carrilId: true,
+        numeroVersion: true,
+        eliminado: true,
+        diagramaId: true,
+        nombre: true,
+        posicionX: true,
+        ancho: true,
         versionProyecto: { select: { orden: true } },
       },
       take: LIMITE_REVISIONES,
@@ -131,6 +146,19 @@ export async function cargarEstado(proyectoId: string, orden: number | null, db:
       })),
       orden,
     ).map((r): Conexion => sinOrden(r)),
+    carriles: ultimaRevisionHasta(
+      carriles.map((r) => ({
+        id: r.carrilId,
+        numeroVersion: r.numeroVersion,
+        eliminado: r.eliminado,
+        diagramaId: r.diagramaId,
+        nombre: r.nombre,
+        posicionX: r.posicionX,
+        ancho: r.ancho,
+        ordenBuild: r.versionProyecto.orden,
+      })),
+      orden,
+    ).map((r): Carril => sinOrden(r)),
   };
 }
 
@@ -152,7 +180,7 @@ export async function listarBuilds(proyectoId: string) {
       cerradaEl: true,
       entregable: { select: { id: true, nombre: true } },
       // H15: si el build en desarrollo tiene cambios, finalizar pide cerrarlo.
-      _count: { select: { historiaRevisiones: true, actividadRevisiones: true, conexionRevisiones: true } },
+      _count: { select: { historiaRevisiones: true, actividadRevisiones: true, conexionRevisiones: true, carrilRevisiones: true } },
     },
   });
 }
@@ -210,6 +238,7 @@ export async function confirmarCambios(
       await tx.historiaUsuario.createMany({ data: nuevos(resultado.historias) });
       await tx.actividad.createMany({ data: nuevos(resultado.actividades) });
       await tx.conexionActividad.createMany({ data: nuevos(resultado.conexiones) });
+      await tx.carril.createMany({ data: nuevos(resultado.carriles) });
 
       await tx.historiaUsuarioVersion.createMany({
         data: resultado.historias.map((h) => ({
@@ -257,7 +286,21 @@ export async function confirmarCambios(
         })),
       });
 
-      const revisiones = resultado.historias.length + resultado.actividades.length + resultado.conexiones.length;
+      await tx.carrilVersion.createMany({
+        data: resultado.carriles.map((c) => ({
+          carrilId: c.id,
+          numeroVersion: c.numeroVersion,
+          eliminado: c.eliminado,
+          diagramaId: c.diagramaId,
+          nombre: c.nombre,
+          posicionX: c.posicionX,
+          ancho: c.ancho,
+          ...comun,
+        })),
+      });
+
+      const revisiones =
+        resultado.historias.length + resultado.actividades.length + resultado.conexiones.length + resultado.carriles.length;
       return { ok: true, revisiones, ids } as const;
     },
     { timeout: 20_000 },
@@ -313,11 +356,22 @@ export async function historialDeActividad(proyectoId: string, actividadId: stri
   }));
 }
 
+/** H17: el historial de revisiones de un carril, de la más nueva a la más vieja. */
+export async function historialDeCarril(proyectoId: string, carrilId: string) {
+  const filas = await prisma.carrilVersion.findMany({
+    where: { carrilId, carril: { proyectoId } },
+    orderBy: { numeroVersion: "desc" },
+    take: LIMITE_HISTORIAL,
+    select: { ...selectAutorYBuild, nombre: true, diagramaId: true, posicionX: true, ancho: true },
+  });
+  return filas.map(({ versionProyecto, ...r }) => ({ ...r, build: etiquetaBuild(versionProyecto) }));
+}
+
 export type CambioDeOtro = {
   tipo: TipoElemento;
   elementoId: string;
   numeroVersion: number;
-  // Para una flecha: la actividad cuyo diagrama la contiene (spec, H12).
+  // Para una flecha o un carril: la actividad cuyo diagrama lo contiene (spec, H12).
   actividadId: string | null;
   nombre: string;
   accion: "CREO" | "MODIFICO" | "ELIMINO";
@@ -331,7 +385,7 @@ export type CambioDeOtro = {
  */
 export async function cambiosDeOtrosDesde(proyectoId: string, usuarioId: string, desde: Date): Promise<CambioDeOtro[]> {
   const condicion = { creadoEn: { gt: desde }, autorId: { not: usuarioId } };
-  const [historias, actividades, conexiones] = await Promise.all([
+  const [historias, actividades, conexiones, carriles] = await Promise.all([
     prisma.historiaUsuarioVersion.findMany({
       where: { historia: { proyectoId }, ...condicion },
       orderBy: { creadoEn: "asc" },
@@ -350,23 +404,34 @@ export async function cambiosDeOtrosDesde(proyectoId: string, usuarioId: string,
       take: LIMITE_HISTORIAL,
       select: { conexionId: true, numeroVersion: true, eliminado: true, actividadOrigenId: true, creadoEn: true, autor: { select: { id: true, nombre: true } } },
     }),
+    prisma.carrilVersion.findMany({
+      where: { carril: { proyectoId }, ...condicion },
+      orderBy: { creadoEn: "asc" },
+      take: LIMITE_HISTORIAL,
+      select: { carrilId: true, numeroVersion: true, diagramaId: true, creadoEn: true, autor: { select: { id: true, nombre: true } } },
+    }),
   ]);
 
   const accion = (r: { numeroVersion: number; eliminado: boolean }) =>
     r.eliminado ? ("ELIMINO" as const) : r.numeroVersion === 1 ? ("CREO" as const) : ("MODIFICO" as const);
 
-  // Una flecha se informa con la actividad cuyo diagrama la contiene: el padre de su origen.
+  // Una flecha se informa con la actividad cuyo diagrama la contiene (el padre de su
+  // origen), y un carril con la de su diagrama.
   let diagramas = new Map<string, { id: string; nombre: string }>();
-  if (conexiones.length > 0) {
+  if (conexiones.length > 0 || carriles.length > 0) {
     const estado = await cargarEstado(proyectoId, null);
     const porId = new Map(estado.actividades.map((a) => [a.id, a]));
-    diagramas = new Map(
-      conexiones.map((c) => {
+    diagramas = new Map([
+      ...conexiones.map((c): [string, { id: string; nombre: string }] => {
         const padreId = porId.get(c.actividadOrigenId)?.padreId ?? null;
         const padre = padreId ? porId.get(padreId) : undefined;
         return [c.conexionId, { id: padre?.id ?? c.actividadOrigenId, nombre: padre?.nombre ?? "Diagrama" }];
       }),
-    );
+      ...carriles.map((c): [string, { id: string; nombre: string }] => [
+        c.carrilId,
+        { id: c.diagramaId, nombre: porId.get(c.diagramaId)?.nombre ?? "Diagrama" },
+      ]),
+    ]);
   }
 
   return [
@@ -397,6 +462,16 @@ export async function cambiosDeOtrosDesde(proyectoId: string, usuarioId: string,
       numeroVersion: r.numeroVersion,
       actividadId: diagramas.get(r.conexionId)?.id ?? null,
       nombre: diagramas.get(r.conexionId)?.nombre ?? "Diagrama",
+      accion: "MODIFICO" as const,
+      autor: r.autor,
+      creadoEn: r.creadoEn,
+    })),
+    ...carriles.map((r) => ({
+      tipo: "CARRIL" as const,
+      elementoId: r.carrilId,
+      numeroVersion: r.numeroVersion,
+      actividadId: diagramas.get(r.carrilId)?.id ?? null,
+      nombre: diagramas.get(r.carrilId)?.nombre ?? "Diagrama",
       accion: "MODIFICO" as const,
       autor: r.autor,
       creadoEn: r.creadoEn,

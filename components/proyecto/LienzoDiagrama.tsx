@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * El lienzo de un diagrama (H5, H6, H7, H10, H16): los nodos internos de una
+ * El lienzo de un diagrama (H5, H6, H7, H10, H16, H17): los nodos internos de una
  * actividad (actividades y nodos de control de UML) y las flechas entre ellos.
  *
  * - La barra de herramientas muestra la figura de cada elemento que se agrega y una
@@ -16,11 +16,15 @@
  *   validan (H16) las controla quien recibe el gesto.
  * - Las flechas se dibujan solas, de borde a borde de la forma de cada nodo, con su
  *   guarda entre corchetes si tiene una.
+ * - H17: los carriles son franjas verticales detrás de los nodos. La cabecera se
+ *   arrastra para moverlos y cada borde lateral, para cambiar el ancho. Son solo
+ *   visuales: ningún gesto sobre un carril mueve nodos.
  *
  * No guarda nada: avisa cada gesto al componente padre, que actualiza el borrador.
  * Las coordenadas son píxeles del diagrama: así se guardan las posiciones (posición X e Y).
  */
 import {
+  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -33,7 +37,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { esNodoDeControl, etiquetaTipoNodo, type TipoNodo } from "@/lib/documentacion";
-import { acercarVista, desplazarVista, VISTA_INICIAL, type Vista } from "@/lib/lienzo";
+import { acercarVista, arrastrarCarril, desplazarVista, VISTA_INICIAL, type ModoArrastreCarril, type Vista } from "@/lib/lienzo";
 import { GUARDA_MAX } from "@/lib/schemas/conexionActividad";
 import { cantidad, cn } from "@/lib/utils";
 
@@ -43,8 +47,14 @@ const PASO_TECLADO = 10;
 
 export type NodoLienzo = { id: string; tipo: TipoNodo; nombre: string; x: number; y: number; internas: number; historias: number };
 export type FlechaLienzo = { id: string; origenId: string; destinoId: string; guarda: string };
+// H17: un carril es una franja vertical de todo el alto del lienzo.
+export type CarrilLienzo = { id: string; nombre: string; x: number; ancho: number };
 
 type Arrastre = { id: string; inicioX: number; inicioY: number; x0: number; y0: number; x: number; y: number; movido: boolean };
+type ArrastreCarril = { id: string; modo: ModoArrastreCarril; inicioX: number; x0: number; ancho0: number; x: number; ancho: number; movido: boolean };
+
+// Alto de la cabecera de un carril, donde va su nombre (se arrastra para moverlo).
+const ALTO_CABECERA_CARRIL = 36;
 
 // H16: tamaño de cada forma en el lienzo. La actividad es un rectángulo; los nodos de
 // control, formas chicas de UML.
@@ -132,6 +142,14 @@ function forma(tipo: TipoNodo, { ancho, alto } = tamanios[tipo]): ReactNode {
   }
 }
 
+/** La figura de "Carril": una franja vertical con su cabecera. */
+const iconoCarril = (
+  <svg width={20} height={24} viewBox="0 0 20 24" aria-hidden="true">
+    <rect x={1} y={1} width={18} height={22} rx={2} fill="var(--card)" stroke="currentColor" strokeWidth={2} />
+    <path d="M 1 7 L 19 7" stroke="currentColor" strokeWidth={2} />
+  </svg>
+);
+
 /** La figura de "Conectar elementos": una flecha. */
 const iconoFlecha = (
   <svg width={28} height={18} viewBox="0 0 28 18" aria-hidden="true">
@@ -167,6 +185,11 @@ export function LienzoDiagrama({
   onConectar,
   onEliminarFlecha,
   onCambiarGuarda,
+  carriles,
+  carrilElegido,
+  onSeleccionarCarril,
+  onCrearCarril,
+  onCambiarCarril,
 }: {
   titulo: string;
   nodos: NodoLienzo[];
@@ -181,8 +204,14 @@ export function LienzoDiagrama({
   onConectar: (origenId: string, destinoId: string) => void;
   onEliminarFlecha: (id: string) => void;
   onCambiarGuarda: (id: string, guarda: string) => void;
+  carriles: CarrilLienzo[];
+  carrilElegido: string | null;
+  onSeleccionarCarril: (id: string) => void;
+  onCrearCarril: () => void;
+  onCambiarCarril: (id: string, cambio: { posicionX: number; ancho: number }) => void;
 }) {
   const [arrastre, setArrastre] = useState<Arrastre | null>(null);
+  const [arrastreCarril, setArrastreCarril] = useState<ArrastreCarril | null>(null);
   const [conectando, setConectando] = useState(false);
   const [origen, setOrigen] = useState<string | null>(null);
   const [flechaElegida, setFlechaElegida] = useState<string | null>(null);
@@ -200,7 +229,20 @@ export function LienzoDiagrama({
     return mapa;
   }, [nodos, arrastre]);
 
-  const ancho = Math.max(1100, ...[...posiciones.values()].map((p) => p.x + ANCHO_NODO + 160));
+  // H17: durante un arrastre, el carril se dibuja donde va quedando.
+  const franjas = useMemo(
+    () =>
+      carriles.map((c) =>
+        arrastreCarril?.id === c.id ? { ...c, x: arrastreCarril.x, ancho: arrastreCarril.ancho } : c,
+      ),
+    [carriles, arrastreCarril],
+  );
+
+  const ancho = Math.max(
+    1100,
+    ...[...posiciones.values()].map((p) => p.x + ANCHO_NODO + 160),
+    ...franjas.map((c) => c.x + c.ancho + 160),
+  );
   const alto = Math.max(520, ...[...posiciones.values()].map((p) => p.y + ALTO_NODO + 160));
   const nombre = (id: string) => {
     const n = porId.get(id);
@@ -237,9 +279,10 @@ export function LienzoDiagrama({
     return () => r.removeEventListener("wheel", alGirar);
   }, [ancho, alto]);
 
-  // Arrastrar el fondo (no un nodo ni una flecha) desplaza la vista.
+  // Arrastrar el fondo (no un nodo, una flecha, ni la cabecera o un borde de un
+  // carril) desplaza la vista. El cuerpo de un carril cuenta como fondo.
   const alPresionarFondo = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || (e.target as Element).closest('button, [role="button"]')) return;
+    if (e.button !== 0 || (e.target as Element).closest('button, [role="button"], [data-borde-carril]')) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     setPaneo({ x: e.clientX, y: e.clientY });
   };
@@ -291,6 +334,45 @@ export function LienzoDiagrama({
       onMoverNodo(arrastre.id, arrastre.x, arrastre.y);
     }
     setArrastre(null);
+  };
+
+  // --- H17: carriles. La cabecera mueve el carril; cada borde lo estira o lo encoge
+  // con el borde opuesto fijo. Ningún gesto sobre un carril toca los nodos.
+  const alPresionarCarril = (e: PointerEvent<HTMLElement>, c: CarrilLienzo, modo: ModoArrastreCarril) => {
+    if (soloLectura || e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setArrastreCarril({ id: c.id, modo, inicioX: e.clientX, x0: c.x, ancho0: c.ancho, x: c.x, ancho: c.ancho, movido: false });
+  };
+  const alMoverCarril = (e: PointerEvent<HTMLElement>) => {
+    if (!arrastreCarril) return;
+    const dx = e.clientX - arrastreCarril.inicioX;
+    const movido = arrastreCarril.movido || Math.abs(dx) > 4;
+    const franja = arrastrarCarril({ posicionX: arrastreCarril.x0, ancho: arrastreCarril.ancho0 }, arrastreCarril.modo, dx / vista.escala);
+    setArrastreCarril({ ...arrastreCarril, movido, x: franja.posicionX, ancho: franja.ancho });
+  };
+  const alSoltarCarril = () => {
+    if (!arrastreCarril) return;
+    if (arrastreCarril.movido) {
+      if (arrastreCarril.modo === "mover") ignorarClick.current = true;
+      onCambiarCarril(arrastreCarril.id, { posicionX: arrastreCarril.x, ancho: arrastreCarril.ancho });
+    }
+    setArrastreCarril(null);
+  };
+  const alClickCarril = (id: string) => {
+    if (ignorarClick.current) {
+      ignorarClick.current = false;
+      return;
+    }
+    setFlechaElegida(null);
+    onSeleccionarCarril(id);
+  };
+  const alTeclaCarril = (e: KeyboardEvent<HTMLButtonElement>, c: CarrilLienzo) => {
+    if (soloLectura) return;
+    const paso = e.shiftKey ? PASO_TECLADO * 5 : PASO_TECLADO;
+    const d = e.key === "ArrowLeft" ? -paso : e.key === "ArrowRight" ? paso : 0;
+    if (!d) return;
+    e.preventDefault();
+    onCambiarCarril(c.id, { posicionX: Math.max(0, c.x + d), ancho: c.ancho });
   };
 
   const alClick = (id: string) => {
@@ -406,6 +488,18 @@ export function LienzoDiagrama({
               {forma(tipo, { ancho: w, alto: h })}
             </Button>
           ))}
+          {/* H17 */}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="w-11 px-0"
+            title="Carril"
+            aria-label="Carril"
+            onClick={onCrearCarril}
+          >
+            {iconoCarril}
+          </Button>
           <span aria-hidden="true" className="mx-1 h-6 w-px bg-border" />
           <Button
             type="button"
@@ -475,6 +569,16 @@ export function LienzoDiagrama({
           // La vista (desplazamiento y acercamiento) es un valor de runtime.
           style={{ width: ancho, height: alto, transform: `translate(${vista.x}px, ${vista.y}px) scale(${vista.escala})` }}
         >
+          {/* H17: el cuerpo de cada carril, detrás de todo. Arrastrarlo desplaza la vista. */}
+          {franjas.map((c) => (
+            <div
+              key={c.id}
+              aria-hidden="true"
+              className={cn("absolute top-0 border-x-2 bg-card/60", carrilElegido === c.id ? "border-primary" : "border-slate-300")}
+              style={{ left: c.x, width: c.ancho, height: alto }}
+            />
+          ))}
+
           <svg className="absolute inset-0 text-slate-500" width={ancho} height={alto} aria-hidden={flechas.length === 0}>
             <defs>
               <marker id="punta-flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
@@ -529,6 +633,54 @@ export function LienzoDiagrama({
               );
             })}
           </svg>
+
+          {/* H17: la cabecera y los bordes de cada carril van sobre las flechas (si no,
+              el lienzo de las flechas se queda con el clic) y debajo de los nodos. */}
+          {franjas.map((c) => {
+            const elegido = carrilElegido === c.id;
+            const gestos = {
+              onPointerMove: alMoverCarril,
+              onPointerUp: alSoltarCarril,
+              onPointerCancel: () => setArrastreCarril(null),
+            };
+            return (
+              <Fragment key={c.id}>
+                <button
+                  type="button"
+                  aria-label={`Carril ${c.nombre}`}
+                  aria-pressed={elegido}
+                  // El nombre se corta si no entra; el título lo muestra completo.
+                  title={c.nombre}
+                  className={cn(
+                    "absolute top-0 flex touch-none select-none items-center justify-center border-x-2 border-b-2 px-2 text-sm font-semibold",
+                    elegido ? "border-primary bg-secondary text-secondary-foreground" : "border-slate-300 bg-card text-foreground",
+                    soloLectura ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
+                  )}
+                  style={{ left: c.x, width: c.ancho, height: ALTO_CABECERA_CARRIL }}
+                  onPointerDown={(e) => alPresionarCarril(e, c, "mover")}
+                  {...gestos}
+                  onClick={() => alClickCarril(c.id)}
+                  onKeyDown={(e) => alTeclaCarril(e, c)}
+                >
+                  <span className="truncate">{c.nombre}</span>
+                </button>
+                {/* Cada borde se agarra del lado de adentro del carril: con dos carriles
+                    pegados, cada uno conserva su propio borde en la línea que comparten. */}
+                {!soloLectura &&
+                  (["izquierda", "derecha"] as const).map((lado) => (
+                    <div
+                      key={lado}
+                      data-borde-carril=""
+                      aria-hidden="true"
+                      className="absolute top-0 w-2 cursor-ew-resize touch-none"
+                      style={{ left: lado === "izquierda" ? c.x : c.x + c.ancho - 8, height: alto }}
+                      onPointerDown={(e) => alPresionarCarril(e, c, lado)}
+                      {...gestos}
+                    />
+                  ))}
+              </Fragment>
+            );
+          })}
 
           {nodos.map((n) => {
             const p = posiciones.get(n.id) ?? { x: n.x, y: n.y };
@@ -597,7 +749,7 @@ export function LienzoDiagrama({
         </div>
 
         {/* Fuera de la vista: el aviso no se desplaza ni se agranda con el diagrama. */}
-        {nodos.length === 0 && (
+        {nodos.length === 0 && carriles.length === 0 && (
           <p className="pointer-events-none absolute left-6 top-6 max-w-sm text-sm text-muted-foreground">
             {soloLectura
               ? "Este diagrama no tiene actividades."

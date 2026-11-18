@@ -75,10 +75,11 @@ Y además, los datos propios de cada tipo:
 | `HistoriaUsuarioVersion` | Título, descripción y criterios de aceptación |
 | `ActividadVersion` | Tipo (actividad o nodo de control, ver abajo), nombre, documentación, actividad padre (o ninguna), posición X e Y en el lienzo, e historias de usuario asociadas |
 | `ConexionActividadVersion` | Actividad de origen, actividad de destino y guarda (condición opcional, H16) |
+| `CarrilVersion` | Diagrama al que pertenece, nombre, posición X y ancho en el lienzo (H17) |
 
 **Las referencias apuntan al `id` del elemento, no a una versión.** El padre de una actividad, el
-origen y el destino de una flecha y las historias asociadas a una actividad guardan el `id` del
-elemento referido. Qué versión de ese elemento corresponde se resuelve con la regla de
+origen y el destino de una flecha, las historias asociadas a una actividad y el diagrama de un carril
+guardan el `id` del elemento referido. Qué versión de ese elemento corresponde se resuelve con la regla de
 reconstrucción de un build (sección 6), así que editar un elemento no obliga a crear revisiones de los
 que lo referencian.
 
@@ -93,6 +94,7 @@ que lo referencian.
 | **HistoriaUsuario** / **HistoriaUsuarioVersion** | Identidad y revisiones de una historia de usuario. El título es único dentro del proyecto | Proyecto (N-1), actividades que la referencian |
 | **Actividad** / **ActividadVersion** | Identidad y revisiones de una actividad. Una actividad **sin padre** es un **diagrama**; las que tienen padre son los nodos de su diagrama interno | Proyecto (N-1), actividad padre (N-1 opcional), historias asociadas (N-N), flechas |
 | **ConexionActividad** / **ConexionActividadVersion** | Identidad y revisiones de una flecha entre dos actividades del mismo diagrama | Actividad origen (N-1), actividad destino (N-1), Proyecto (N-1) |
+| **Carril** / **CarrilVersion** | Identidad y revisiones de un carril: una franja vertical con nombre en el lienzo de un diagrama (H17) | Actividad cuyo diagrama divide (N-1), Proyecto (N-1) |
 | **VersionProyecto** | Un **build** del proyecto. Está `en_desarrollo` (sin número, es donde se trabaja; siempre hay exactamente una por proyecto) o `cerrada` (identificada por `Version.Build.Patch`). Tiene un número de orden correlativo dentro del proyecto (1, 2, 3...) que ordena los builds. No tiene autor. Al cerrarse queda vinculado a un entregable | Proyecto (N-1), revisiones confirmadas durante ese build (1-N), Entregable (N-1; obligatorio al cerrar) |
 
 **Relaciones N-N:** un usuario participa en muchos proyectos y un proyecto tiene muchos usuarios, a
@@ -115,6 +117,13 @@ posición, las flechas, la concurrencia y el borrado sin duplicar nada:
 Los nodos de control no tienen nombre, documentación, historias asociadas ni diagrama interno, y
 siempre están dentro de un diagrama. El tipo de un nodo se elige al crearlo y no cambia.
 
+**Carriles (H17).** Un carril es una franja vertical con nombre que divide el lienzo de un diagrama,
+por ejemplo para mostrar qué área o rol realiza cada parte del proceso. Es un elemento **solo visual**:
+guarda su propia posición X y su ancho, y ocupa todo el alto del lienzo. **No se registra qué nodos
+están dentro de un carril**: un nodo que se ve sobre un carril no tiene ninguna relación guardada con
+él. Pertenece a un diagrama (una actividad de tipo actividad, de cualquier nivel) y no cambia de
+diagrama.
+
 **Diagramas:** un diagrama es una actividad sin padre. Sus actividades hijas son los nodos de su
 lienzo, y las flechas unen hijas del mismo padre. Una actividad hija puede tener a su vez hijas: ese es
 su diagrama interno (diagramas anidados). Un proyecto puede tener todos los diagramas que el equipo
@@ -124,8 +133,8 @@ necesite.
 cualquier nivel), no desde la historia. La historia muestra la lista de actividades asociadas,
 calculada a partir de las actividades que la referencian en el build que se está mirando.
 
-**Eliminar no borra.** Eliminar una historia, una actividad o una flecha crea una revisión nueva
-marcada **eliminado**. Desde ese build el elemento deja de aparecer; los builds anteriores lo siguen
+**Eliminar no borra.** Eliminar una historia, una actividad, una flecha o un carril crea una revisión
+nueva marcada **eliminado**. Desde ese build el elemento deja de aparecer; los builds anteriores lo siguen
 mostrando tal como estaba, porque su revisión vigente en ellos no está marcada como eliminada.
 
 **Definición del proyecto.** Además de nombre y descripción, el proyecto guarda los datos que el dueño
@@ -174,6 +183,7 @@ se muestra ni se comunica por mail.
 | Cada criterio de aceptación | 300 caracteres |
 | Nombre de actividad | 100 caracteres |
 | Guarda de una flecha | 100 caracteres |
+| Nombre de carril | 100 caracteres |
 | Documentación de actividad | 5000 caracteres |
 | Nombre de versión de proyecto | 100 caracteres |
 | Descripción de versión de proyecto | 1000 caracteres |
@@ -182,6 +192,8 @@ se muestra ni se comunica por mail.
 | Cada límite o exclusión (sin límite de cantidad) | 300 caracteres |
 | Nombre de entregable | 100 caracteres |
 | Descripción de entregable | 1000 caracteres |
+
+**Ancho de un carril:** entre 120 y 2000 píxeles del lienzo.
 
 **Reglas de borrado en la base.** El producto nunca borra elementos versionables (los marca como
 eliminados). Estas reglas aplican cuando se borra un registro de la base:
@@ -193,7 +205,7 @@ eliminados). Estas reglas aplican cuando se borra un registro de la base:
 | Usuario que escribió revisiones | esas revisiones | **no se permite**: una revisión conserva su autor. Si el usuario deja de ser colaborador, sus revisiones lo siguen mostrando como autor |
 | Proyecto | sus colaboradores, sus elementos versionables con todas sus revisiones, sus `VersionProyecto` (incluidas las **cerradas**) y sus entregables | se borra todo en cascada, sin excepción. Por eso la UI advierte que se pierde todo (incluido el historial) y pide una segunda confirmación |
 | Identidad de un elemento | sus revisiones | se borran en cascada (solo ocurre al borrar el proyecto) |
-| Actividad referenciada como padre, origen o destino, o historia referenciada desde una actividad | la revisión que la referencia | **no se permite**: una revisión nunca queda con una referencia rota |
+| Actividad referenciada como padre, origen, destino o diagrama de un carril, o historia referenciada desde una actividad | la revisión que la referencia | **no se permite**: una revisión nunca queda con una referencia rota |
 | `VersionProyecto` con revisiones confirmadas en ese build | esas revisiones | **no se permite** |
 | Entregable al que apunta algún build cerrado | ese build | **no se permite**: un build cerrado nunca queda sin su entregable |
 
@@ -653,6 +665,39 @@ Criterios de aceptación:
       una decisión o una bifurcación pueden tener cualquier cantidad de flechas.
 - [ ] Al mirar una versión cerrada se ven los nodos de control y las guardas tal como estaban.
 
+### H17 - Agregar carriles a un diagrama
+
+**Como** dueño o editor, **quiero** dividir el lienzo de un diagrama en carriles con nombre, **para**
+mostrar qué área o rol realiza cada parte del proceso.
+
+Criterios de aceptación:
+- [ ] La barra de herramientas del lienzo muestra la figura de un **carril** ("Carril" al pasar el
+      mouse). Al hacer clic se agrega un carril con un nombre que no se repite en el diagrama
+      ("Carril 1", "Carril 2"…), pegado a la derecha del carril que está más a la derecha (o en el
+      borde izquierdo del lienzo si no hay ninguno).
+- [ ] Un carril se dibuja como una franja vertical que ocupa todo el alto del lienzo, con su nombre en
+      la cabecera, detrás de los nodos y las flechas.
+- [ ] El usuario mueve un carril hacia los costados arrastrando su cabecera (o con las flechas izquierda
+      y derecha del teclado). Lo ensancha o lo angosta arrastrando cualquiera de sus dos bordes laterales:
+      no hay un campo para escribir el ancho. Moverlo o cambiar su ancho no mueve ningún nodo.
+- [ ] El carril guarda solo su posición y su ancho: no se registra qué nodos quedan dentro. Los nodos
+      se ubican libremente, dentro o fuera de los carriles, y los carriles pueden superponerse; nada de
+      eso se valida.
+- [ ] Al elegir un carril (clic en su cabecera), el panel muestra su nombre para editarlo, la opción de
+      eliminarlo y su historial de versiones.
+- [ ] Eliminar un carril no elimina ni mueve los nodos que se ven sobre él.
+- [ ] Los carriles se versionan como cualquier elemento y se guardan con "Confirmar cambios" (H12). Al
+      mirar una versión cerrada se ven los carriles como estaban.
+- [ ] Un carril pertenece a un diagrama y no cambia de diagrama. Eliminar la actividad cuyo diagrama
+      divide elimina sus carriles en el mismo cambio (como a sus actividades internas). Mover esa
+      actividad de padre conserva sus carriles.
+- [ ] Los nodos de control no tienen carriles, porque no tienen diagrama interno.
+- [ ] Los carriles no aparecen en la barra lateral: solo en el lienzo de su diagrama.
+- [ ] Caso de error: si el nombre está vacío, supera la longitud máxima o ya lo usa otro carril vigente
+      del mismo diagrama, no se guarda y se muestra el motivo. El nombre se compara igual que el título
+      de una historia (sin distinguir mayúsculas ni espacios al borde).
+- [ ] Caso de error: el ancho no puede quedar fuera del mínimo y el máximo (ver sección 3).
+
 ## 5. Flujo principal
 
 ### Mapa de pantallas
@@ -768,6 +813,17 @@ revisar a mano.
 - Una flecha puede tener una guarda (condición opcional), que se muestra entre corchetes.
 - No puede haber dos flechas vigentes con el mismo origen y el mismo destino.
 - Una flecha se elimina sin eliminar las actividades que une.
+
+### Carriles
+
+- Un carril es solo visual: guarda su nombre, su posición X y su ancho. No se registra qué nodos están
+  dentro, y ni su posición ni la de los nodos se validan entre sí (pueden quedar nodos fuera de los
+  carriles y carriles superpuestos).
+- Mover un carril, cambiar su ancho o eliminarlo no modifica ningún nodo.
+- El nombre es obligatorio y único entre los carriles vigentes del mismo diagrama (se compara como el
+  título de una historia). El ancho va de 120 a 2000.
+- Un carril pertenece a un diagrama de tipo actividad (de cualquier nivel) y no cambia de diagrama.
+  Eliminar esa actividad elimina sus carriles en el mismo cambio.
 
 ### Versiones de proyecto (builds)
 

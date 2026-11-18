@@ -3,7 +3,7 @@
  * los valores cerrados (enums) del modelo, ver prisma/schema.prisma. Cada
  * entidad tiene su propio archivo en esta carpeta, con su schema y su tipo
  * derivado (z.infer): usuario.ts, proyecto.ts, miembro.ts, historiaUsuario.ts,
- * actividad.ts, conexionActividad.ts y versionProyecto.ts.
+ * actividad.ts, conexionActividad.ts, carril.ts y versionProyecto.ts.
  */
 import { z } from "zod";
 

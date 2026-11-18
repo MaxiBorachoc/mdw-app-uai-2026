@@ -9,6 +9,7 @@
  */
 import { z } from "zod";
 import { actividadEnBorradorSchema, reglasDeNodo } from "./actividad";
+import { carrilEnBorradorSchema } from "./carril";
 import { IdSchema } from "./comun";
 import { conexionEnBorradorSchema } from "./conexionActividad";
 import { contenidoHistoriaSchema } from "./historiaUsuario";
@@ -26,11 +27,14 @@ export const cambiosSchema = z.object({
   historias: z.array(contenidoHistoriaSchema.extend(control)).max(ELEMENTOS_POR_CONFIRMACION_MAX),
   actividades: z.array(actividadEnBorradorSchema.extend(control).superRefine(reglasDeNodo)).max(ELEMENTOS_POR_CONFIRMACION_MAX),
   conexiones: z.array(conexionEnBorradorSchema.extend(control)).max(ELEMENTOS_POR_CONFIRMACION_MAX),
+  // H17. Opcional para no romper a quien todavía no manda carriles.
+  carriles: z.array(carrilEnBorradorSchema.extend(control)).max(ELEMENTOS_POR_CONFIRMACION_MAX).default([]),
 });
 export type Cambios = z.infer<typeof cambiosSchema>;
 export type CambioHistoria = Cambios["historias"][number];
 export type CambioActividad = Cambios["actividades"][number];
 export type CambioConexion = Cambios["conexiones"][number];
+export type CambioCarril = Cambios["carriles"][number];
 
 // GET .../cambios?desde=<fecha ISO>
 export const consultaCambiosSchema = z.object({
