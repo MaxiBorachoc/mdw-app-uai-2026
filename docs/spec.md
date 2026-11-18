@@ -328,8 +328,8 @@ Criterios de aceptacion:
 sistema y con qué criterios se valida.
 
 Criterios de aceptación:
-- [ ] Desde la barra lateral (ver H11), en el acordeón "Historias de usuario", el usuario elige "Nueva
-      historia" y carga título, descripción y criterios de aceptación (uno o más).
+- [ ] Desde la barra lateral (ver H11), en el acordeón "Historias de usuario", el usuario elige el botón
+      **+** ("Nueva historia") y carga título, descripción y criterios de aceptación (uno o más).
 - [ ] Al confirmar, la historia queda creada con su versión 1, registrada en el build en desarrollo.
 - [ ] Caso de error: si falta título o descripción, no se puede confirmar y se marcan los campos a
       corregir.
@@ -367,7 +367,8 @@ Criterios de aceptación:
 representar cada proceso funcional por separado.
 
 Criterios de aceptación:
-- [ ] Desde la barra lateral, en el acordeón "Diagramas de actividades", el usuario elige "Nuevo diagrama" y carga un
+- [ ] Desde la barra lateral, en el acordeón "Diagramas de actividades", el usuario elige el botón **+**
+      ("Nuevo diagrama", ver H11) y carga un
       nombre. El diagrama es una actividad sin padre: tiene nombre, documentación e historias
       asociadas como cualquier actividad (ver H6), pero no tiene posición porque no se dibuja en ningún
       lienzo.
@@ -518,6 +519,14 @@ Criterios de aceptación:
 - [ ] El árbol no tiene sangría: al desplegar un elemento, sus actividades internas se listan debajo
       de él, alineadas con él. La flecha girada del elemento indica que está desplegado. Un nombre que
       no entra se ve completo al pasar el mouse.
+- [ ] Debajo del título de cada acordeón abierto hay un **filtro** y, a su derecha, un botón **+** que
+      crea un elemento de ese acordeón ("Nueva historia" o "Nuevo diagrama", nombre que se ve al pasar el
+      mouse). Quien solo consulta (lector, o una versión cerrada) ve el filtro sin el botón **+**.
+- [ ] Al escribir en el filtro, el acordeón muestra solo los elementos cuyo título o nombre contiene el
+      texto, sin distinguir mayúsculas ni tildes. En "Diagramas de actividades" se ven también las
+      actividades que contienen a cada coincidencia (para saber dónde está), con esas ramas desplegadas;
+      el resto se oculta. Si nada coincide, se avisa. Cada acordeón tiene su propio filtro.
+- [ ] Al borrar el texto del filtro, el árbol vuelve a mostrarse plegado y desplegado como estaba.
 - [ ] Seleccionar un elemento en la barra abre su detalle en el panel principal.
 - [ ] La barra respeta el build que se está mirando: en una versión cerrada muestra los elementos de
       ese momento.
